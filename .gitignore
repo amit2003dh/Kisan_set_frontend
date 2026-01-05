@@ -36,8 +36,7 @@ uploads/
 # Ignore database files
 data/*.db
 
-# Ignore public assets
-public/
+
 
 # Ignore package-lock and yarn lock
 package-lock.json
