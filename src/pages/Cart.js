@@ -4,7 +4,7 @@ import { useCart } from "../context/CartContext";
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { cart, updateQuantity, removeFromCart, clearCart, getCartTotal } = useCart();
+  const { cart, updateQuantity, removeFromCart, clearCart, getCartTotal, loading: cartLoading } = useCart();
   const [currentUser, setCurrentUser] = useState(null);
   const [quantityInputs, setQuantityInputs] = useState({});
 
@@ -26,6 +26,22 @@ export default function Cart() {
     const total = getCartTotal();
     navigate(`/payment?total=${total}&fromCart=true`);
   };
+
+  // Show loading state while cart is being loaded
+  if (cartLoading) {
+    return (
+      <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
+        <div className="page-header">
+          <h1>🛒 Shopping Cart</h1>
+          <p>Loading your cart...</p>
+        </div>
+        <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div className="loading-spinner"></div>
+          <p style={{ marginTop: "16px", color: "var(--text-secondary)" }}>Loading cart items...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -65,7 +81,12 @@ export default function Cart() {
         <p>{cart.length} {cart.length === 1 ? "item" : "items"} in your cart</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: "32px", marginTop: "32px" }}>
+      <div style={{ 
+        display: "grid", 
+        gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 400px", 
+        gap: "32px", 
+        marginTop: "32px" 
+      }}>
         {/* Cart Items */}
         <div>
           <div className="card">
@@ -169,26 +190,63 @@ export default function Cart() {
                     </button>
                   </div>
 
-                  <div style={{ marginTop: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <label style={{ fontSize: "14px", color: "var(--text-secondary)", fontWeight: "600" }}>
+                  <div style={{ 
+                    marginTop: "20px", 
+                    paddingTop: "16px", 
+                    borderTop: "1px solid var(--border)",
+                    display: "flex", 
+                    flexDirection: "column", 
+                    gap: "12px" 
+                  }}>
+                    <div style={{ 
+                      display: "flex", 
+                      alignItems: "center", 
+                      gap: "12px", 
+                      flexWrap: "wrap",
+                      padding: "8px 0"
+                    }}>
+                      <label style={{ 
+                        fontSize: "15px", 
+                        color: "var(--text-primary)", 
+                        fontWeight: "700", 
+                        minWidth: "90px" 
+                      }}>
                         Quantity:
                       </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: "10px", 
+                        flex: "1", 
+                        minWidth: "180px",
+                        background: "#f9f9f9",
+                        padding: "4px",
+                        borderRadius: "var(--border-radius-sm)"
+                      }}>
                         <button
                           onClick={() => updateQuantity(item._id, item.type, Math.max(1, item.quantity - 1))}
                           style={{
-                            width: "32px",
-                            height: "32px",
-                            border: "1px solid var(--border)",
+                            width: "36px",
+                            height: "36px",
+                            border: "2px solid var(--border)",
                             background: "white",
                             borderRadius: "var(--border-radius-sm)",
                             cursor: "pointer",
-                            fontSize: "18px",
+                            fontSize: "20px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "var(--text-primary)"
+                            color: "var(--text-primary)",
+                            fontWeight: "bold",
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.background = "#f5f5f5";
+                            e.target.style.borderColor = "var(--primary-green)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.background = "white";
+                            e.target.style.borderColor = "var(--border)";
                           }}
                         >
                           −
@@ -260,8 +318,8 @@ export default function Cart() {
                             }
                           }}
                           style={{
-                            width: "60px",
-                            height: "32px",
+                            width: "70px",
+                            height: "36px",
                             border: "2px solid var(--border)",
                             borderRadius: "var(--border-radius-sm)",
                             textAlign: "center",
@@ -290,9 +348,9 @@ export default function Cart() {
                             (item.type !== "crop" && item.stock !== undefined && item.stock !== null && item.quantity >= item.stock)
                           }
                           style={{
-                            width: "32px",
-                            height: "32px",
-                            border: "1px solid var(--border)",
+                            width: "36px",
+                            height: "36px",
+                            border: "2px solid var(--border)",
                             background: (
                               (item.type === "crop" && item.availableQuantity !== undefined && item.availableQuantity !== null && item.quantity >= item.availableQuantity) ||
                               (item.type !== "crop" && item.stock !== undefined && item.stock !== null && item.quantity >= item.stock)
@@ -306,7 +364,7 @@ export default function Cart() {
                             ) 
                               ? "not-allowed" 
                               : "pointer",
-                            fontSize: "18px",
+                            fontSize: "20px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -316,18 +374,32 @@ export default function Cart() {
                             )
                               ? "var(--text-light)"
                               : "var(--text-primary)",
+                            fontWeight: "bold",
                             opacity: (
                               (item.type === "crop" && item.availableQuantity !== undefined && item.availableQuantity !== null && item.quantity >= item.availableQuantity) ||
                               (item.type !== "crop" && item.stock !== undefined && item.stock !== null && item.quantity >= item.stock)
                             ) 
                               ? 0.5 
-                              : 1
+                              : 1,
+                            transition: "all 0.2s"
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!e.target.disabled) {
+                              e.target.style.background = "#f5f5f5";
+                              e.target.style.borderColor = "var(--primary-green)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!e.target.disabled) {
+                              e.target.style.background = "white";
+                              e.target.style.borderColor = "var(--border)";
+                            }
                           }}
                         >
                           +
                         </button>
                       </div>
-                      <div style={{ marginLeft: "auto", fontSize: "18px", fontWeight: "700", color: "var(--primary-green)" }}>
+                      <div style={{ marginLeft: "auto", fontSize: "18px", fontWeight: "700", color: "var(--primary-green)", minWidth: "100px", textAlign: "right" }}>
                         ₹{(item.price * item.quantity)?.toFixed(2) || 0}
                       </div>
                     </div>

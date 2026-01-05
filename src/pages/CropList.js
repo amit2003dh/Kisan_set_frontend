@@ -10,6 +10,7 @@ export default function CropList() {
   const [error, setError] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const { addToCart } = useCart();
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     // Get current user from localStorage
@@ -95,15 +96,45 @@ export default function CropList() {
                 <div style={{
                   width: "100%",
                   height: "180px",
-                  background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
                   borderRadius: "var(--border-radius-sm)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "64px",
-                  marginBottom: "16px"
+                  marginBottom: "16px",
+                  overflow: "hidden",
+                  background: "var(--background)",
+                  border: "1px solid var(--border)"
                 }}>
-                  <img src="" alt="Crop" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "var(--border-radius-sm)" }} />
+                  {crop.image ? (
+                    <img 
+                      src={crop.image.startsWith("http") ? crop.image : `${API_BASE_URL}${crop.image}`} 
+                      alt={crop.name || "Crop"} 
+                      style={{ 
+                        width: "100%", 
+                        height: "100%", 
+                        objectFit: "cover",
+                        display: "block"
+                      }}
+                      onError={(e) => {
+                        // Fallback to icon if image fails to load
+                        const parent = e.target.parentElement;
+                        parent.innerHTML = "";
+                        const fallback = document.createElement("div");
+                        fallback.style.cssText = "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); font-size: 64px;";
+                        fallback.textContent = "🌾";
+                        parent.appendChild(fallback);
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
+                      fontSize: "64px"
+                    }}>
+                      🌾
+                    </div>
+                  )}
                 </div>
                 <h3 style={{
                   marginBottom: "8px",
@@ -175,13 +206,24 @@ export default function CropList() {
                     {(crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "Out of Stock" : "Add to Cart"}
                   </button>
                 ) : (
-                  <Link
-                    to={`/payment?cropId=${crop._id}&amount=${crop.price || 0}`}
+                  <button
+                    onClick={() => {
+                      addToCart({ ...crop, type: "crop" });
+                      // Optionally show a success message or navigate to cart
+                      // You can uncomment the line below if you want to navigate to cart after adding
+                      // navigate("/cart");
+                    }}
                     className="btn btn-primary"
-                    style={{ padding: "10px 20px", fontSize: "14px" }}
+                    disabled={crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0}
+                    style={{ 
+                      padding: "10px 20px", 
+                      fontSize: "14px",
+                      opacity: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? 0.6 : 1,
+                      cursor: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "not-allowed" : "pointer"
+                    }}
                   >
-                    Buy Now
-                  </Link>
+                    {(crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "Out of Stock" : "Add to Cart"}
+                  </button>
                 )}
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import API from "../api/api";
+import { apiCall } from "../api/api";
 
 export default function FarmerDashboard() {
   const [stats, setStats] = useState({ crops: 0, orders: 0, revenue: 0 });
@@ -34,12 +35,15 @@ export default function FarmerDashboard() {
   }, []);
 
   const startVoice = () => {
-    if (!("webkitSpeechRecognition" in window)) {
-      alert("Voice recognition not supported in this browser");
+    // Check for speech recognition support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      setVoiceResult("⚠️ Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
     }
 
-    const recognition = new window.webkitSpeechRecognition();
+    const recognition = new SpeechRecognition();
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = false;
@@ -48,41 +52,61 @@ export default function FarmerDashboard() {
     setVoiceResult("");
 
     recognition.onstart = () => {
-      setVoiceResult("Listening... 👂");
+      setVoiceResult("Listening... 👂 Speak now!");
     };
 
     recognition.onresult = async (e) => {
       const transcript = e.results[0][0].transcript;
       setListening(false);
-      setVoiceResult(`You said: "${transcript}"`);
+      setVoiceResult(`You said: "${transcript}"\nProcessing...`);
 
       try {
-        const response = await API.post("/gemini/voice-intent", { text: transcript });
+        const { data, error: err } = await apiCall(() => 
+          API.post("/gemini/voice-intent", { text: transcript })
+        );
         
-        if (response.data.success && response.data.intent) {
-          setVoiceResult(`💡 ${response.data.intent}`);
-        } else if (response.data.intent) {
-          setVoiceResult(`💡 ${response.data.intent}`);
+        if (err) {
+          // Handle API errors
+          if (err.includes("not configured") || err.includes("API key")) {
+            setVoiceResult(`Recognized: "${transcript}"\n\n💡 Tip: Voice assistant needs Gemini API configuration. Your query was recognized successfully!`);
+          } else if (err.includes("quota") || err.includes("limit")) {
+            setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ API limit reached. Your query was recognized but intent analysis is temporarily unavailable.`);
+          } else {
+            setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ ${err}`);
+          }
+        } else if (data?.intent) {
+          setVoiceResult(`You said: "${transcript}"\n\n💡 ${data.intent}`);
         } else {
           setVoiceResult(`Recognized: "${transcript}"`);
         }
       } catch (error) {
         console.error("Voice intent error:", error);
-        
-        // Show user-friendly error message
-        if (error.response?.status === 503 || error.response?.status === 401) {
-          setVoiceResult(`⚠️ ${error.response?.data?.message || "Gemini API not configured. Your query: \"" + transcript + "\""}`);
-        } else if (error.response?.status === 429) {
-          setVoiceResult(`⚠️ API limit reached. Your query: "${transcript}"`);
-        } else {
-          setVoiceResult(`Recognized: "${transcript}"\n(Intent analysis unavailable)`);
-        }
+        setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ Could not process intent. Please try again.`);
       }
     };
 
     recognition.onerror = (e) => {
       setListening(false);
-      setVoiceResult("Error: Could not recognize speech. Please try again.");
+      let errorMsg = "Error: Could not recognize speech. ";
+      
+      switch(e.error) {
+        case "no-speech":
+          errorMsg = "⚠️ No speech detected. Please try again and speak clearly.";
+          break;
+        case "audio-capture":
+          errorMsg = "⚠️ No microphone found. Please check your microphone settings.";
+          break;
+        case "not-allowed":
+          errorMsg = "⚠️ Microphone permission denied. Please allow microphone access and try again.";
+          break;
+        case "network":
+          errorMsg = "⚠️ Network error. Please check your internet connection.";
+          break;
+        default:
+          errorMsg = `⚠️ Error: ${e.error}. Please try again.`;
+      }
+      
+      setVoiceResult(errorMsg);
       console.error("Recognition error:", e.error);
     };
 
@@ -90,7 +114,13 @@ export default function FarmerDashboard() {
       setListening(false);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (error) {
+      setListening(false);
+      setVoiceResult("⚠️ Could not start voice recognition. Please try again.");
+      console.error("Recognition start error:", error);
+    }
   };
 
   const quickActions = [

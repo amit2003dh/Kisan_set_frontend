@@ -6,7 +6,10 @@ export default function Navbar() {
   const navigate = useNavigate();
   const userRole = localStorage.getItem("userRole") || "";
   const user = localStorage.getItem("user");
-  const userName = user ? JSON.parse(user).name : "";
+  const userData = user ? JSON.parse(user) : null;
+  const userName = userData?.name || "";
+  const profilePhoto = userData?.profilePhoto;
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
 
@@ -41,14 +44,12 @@ export default function Navbar() {
     navLinks.push({ path: "/add-product", label: "🧪 Add Product", icon: "🧪" });
   }
 
-  // Add Cart - only for buyers
-  if (userRole === "buyer") {
-    navLinks.push({ 
-      path: "/cart", 
-      label: `🛒 Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, 
-      icon: "🛒" 
-    });
-  }
+  // Add Cart - for all users (buyers, farmers, sellers can all buy products)
+  navLinks.push({ 
+    path: "/cart", 
+    label: `🛒 Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, 
+    icon: "🛒" 
+  });
 
   return (
     <nav style={{
@@ -133,7 +134,7 @@ export default function Navbar() {
                 style={{
                   color: "white",
                   textDecoration: "none",
-                  padding: "10px 16px",
+                  padding: "8px 16px",
                   borderRadius: "var(--border-radius-sm)",
                   background: isActive("/profile") ? "rgba(255,255,255,0.2)" : "transparent",
                   transition: "background 0.3s",
@@ -141,7 +142,7 @@ export default function Navbar() {
                   fontSize: "15px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px"
+                  gap: "8px"
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive("/profile")) {
@@ -154,7 +155,30 @@ export default function Navbar() {
                   }
                 }}
               >
-                👤 Profile
+                {profilePhoto ? (
+                  <img
+                    src={`${API_BASE_URL}${profilePhoto}`}
+                    alt="Profile"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "2px solid rgba(255,255,255,0.3)"
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      if (!e.target.nextSibling || e.target.nextSibling.textContent !== "👤") {
+                        const span = document.createElement("span");
+                        span.textContent = "👤";
+                        e.target.parentElement.insertBefore(span, e.target);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span>👤</span>
+                )}
+                <span>Profile</span>
               </Link>
               <button
                 onClick={handleLogout}

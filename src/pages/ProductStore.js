@@ -11,6 +11,7 @@ export default function ProductStore() {
   const [filter, setFilter] = useState("all"); // all, seed, pesticide
   const [currentUser, setCurrentUser] = useState(null);
   const { addToCart } = useCart();
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     // Get current user from localStorage
@@ -50,7 +51,18 @@ export default function ProductStore() {
     if (err) {
       setError(err);
     } else {
-      setProducts(data || []);
+      const productsData = data || [];
+      console.log("Fetched products:", productsData);
+      // Log image paths for debugging
+      productsData.forEach(product => {
+        if (product.image) {
+          const imageUrl = product.image.startsWith("http") ? product.image : `${API_BASE_URL}${product.image}`;
+          console.log(`Product "${product.name}" image path:`, product.image, "Full URL:", imageUrl);
+        } else {
+          console.log(`Product "${product.name}" has no image`);
+        }
+      });
+      setProducts(productsData);
     }
     
     setLoading(false);
@@ -141,17 +153,59 @@ export default function ProductStore() {
                   <div style={{
                     width: "100%",
                     height: "180px",
-                    background: color === "#4caf50" 
-                      ? "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)"
-                      : "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)",
                     borderRadius: "var(--border-radius-sm)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "64px",
-                    marginBottom: "16px"
+                    marginBottom: "16px",
+                    overflow: "hidden",
+                    background: "var(--background)",
+                    border: "1px solid var(--border)",
+                    position: "relative"
                   }}>
-                    {getProductIcon(product.type)}
+                    {product.image && product.image.trim() ? (
+                      <img 
+                        src={product.image.startsWith("http") ? product.image : `${API_BASE_URL}${product.image}`} 
+                        alt={product.name || "Product"} 
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          objectFit: "cover",
+                          display: "block"
+                        }}
+                        onError={(e) => {
+                          console.error("Failed to load product image:", product.image, "Full URL:", `${API_BASE_URL}${product.image}`);
+                          // Hide the broken image and show fallback
+                          e.target.style.display = "none";
+                          const parent = e.target.parentElement;
+                          if (parent && !parent.querySelector(".product-fallback")) {
+                            const fallback = document.createElement("div");
+                            fallback.className = "product-fallback";
+                            const icon = product.type === "seed" ? "🌱" : "🧪";
+                            const bgColor = product.type === "seed" 
+                              ? "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)"
+                              : "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)";
+                            fallback.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; font-size: 64px; position: absolute; top: 0; left: 0;`;
+                            fallback.textContent = icon;
+                            parent.appendChild(fallback);
+                          }
+                        }}
+                        onLoad={() => {
+                          console.log("Product image loaded successfully:", product.image);
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: color === "#4caf50" 
+                          ? "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)"
+                          : "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)",
+                        fontSize: "64px"
+                      }}>
+                        {getProductIcon(product.type)}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
@@ -245,13 +299,24 @@ export default function ProductStore() {
                       {(product.stock !== undefined && product.stock !== null && product.stock <= 0) ? "Out of Stock" : "Add to Cart"}
                     </button>
                   ) : (
-                    <Link
-                      to={`/payment?productId=${product._id}&amount=${product.price || 0}&type=product`}
+                    <button
+                      onClick={() => {
+                        addToCart({ ...product, type: product.type });
+                        // Optionally show a success message or navigate to cart
+                        // You can uncomment the line below if you want to navigate to cart after adding
+                        // navigate("/cart");
+                      }}
                       className="btn btn-primary"
-                      style={{ padding: "10px 20px", fontSize: "14px" }}
+                      disabled={product.stock !== undefined && product.stock !== null && product.stock <= 0}
+                      style={{ 
+                        padding: "10px 20px", 
+                        fontSize: "14px",
+                        opacity: (product.stock !== undefined && product.stock !== null && product.stock <= 0) ? 0.6 : 1,
+                        cursor: (product.stock !== undefined && product.stock !== null && product.stock <= 0) ? "not-allowed" : "pointer"
+                      }}
                     >
-                      Buy Now
-                    </Link>
+                      {(product.stock !== undefined && product.stock !== null && product.stock <= 0) ? "Out of Stock" : "Add to Cart"}
+                    </button>
                   )}
                 </div>
               </div>
