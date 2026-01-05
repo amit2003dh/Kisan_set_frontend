@@ -76,7 +76,7 @@ export default function AddCrop() {
           },
         })
       );
-
+console.log(data, err);
       if (err) {
         setError(err);
         setLoading(false);

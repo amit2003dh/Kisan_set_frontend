@@ -78,7 +78,7 @@ export default function AddProduct() {
           },
         })
       );
-
+console.log(data, err);
       if (err) {
         setError(err);
         setLoading(false);
