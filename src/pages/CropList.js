@@ -103,7 +103,7 @@ export default function CropList() {
                   fontSize: "64px",
                   marginBottom: "16px"
                 }}>
-                  🌾
+                  <img src="" alt="Crop" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "var(--border-radius-sm)" }} />
                 </div>
                 <h3 style={{
                   marginBottom: "8px",
