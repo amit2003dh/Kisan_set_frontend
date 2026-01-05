@@ -12,7 +12,7 @@ const server = http.createServer(app);
 
 app.use(express.json());
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5000","https://kisan-set-frontend-71z4.vercel.app"], // Allow your frontend URL
+    origin: ["http://localhost:5173", "http://localhost:3000","https://kisan-set-frontend-71z4.vercel.app"], // Allow your frontend URL
     credentials: true // Allow cookies/headers
 }));
 
