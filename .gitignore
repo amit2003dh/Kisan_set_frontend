@@ -1,0 +1,44 @@
+# Node.js dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Misc
+*.swp
+*.swo
+
+# Uploaded files
+uploads/
+
+# Ignore database files
+data/*.db
+
+# Ignore public assets
+public/
+
+# Ignore package-lock and yarn lock
+package-lock.json
+yarn.lock
