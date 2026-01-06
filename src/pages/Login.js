@@ -19,6 +19,8 @@ export default function Login() {
         // Redirect based on role
         if (userData.role === "farmer") {
           navigate("/farmer", { replace: true });
+        } else if (userData.role === "delivery_partner") {
+          navigate("/delivery-partner", { replace: true });
         } else {
           navigate("/crops", { replace: true });
         }
@@ -117,7 +119,13 @@ export default function Login() {
     localStorage.setItem("userRole", data.user.role);
 
     // Redirect based on role
-    navigate(data.user.role === "farmer" ? "/farmer" : "/crops");
+    if (data.user.role === "farmer") {
+      navigate("/farmer");
+    } else if (data.user.role === "delivery_partner") {
+      navigate("/delivery-partner");
+    } else {
+      navigate("/crops");
+    }
   };
 
   return (
@@ -393,6 +401,7 @@ export default function Login() {
                 <option value="farmer">👨‍🌾 Farmer</option>
                 <option value="buyer">🛒 Buyer</option>
                 <option value="seller">🏪 Seller</option>
+                <option value="delivery_partner">🚚 Delivery Partner</option>
               </select>
             </div>
 

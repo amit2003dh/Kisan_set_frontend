@@ -234,10 +234,11 @@ Example responses:
   };
 
   const quickActions = [
-    { path: "/add-crop", label: "Add New Crop", icon: "➕", color: "#4caf50" },
-    { path: "/crops", label: "View All Crops", icon: "🌾", color: "#2e7d32" },
-    { path: "/orders", label: "My Orders", icon: "📦", color: "#1976d2" },
-    { path: "/products", label: "Buy Seeds/Pesticides", icon: "🛒", color: "#f57c00" },
+    { path: "/manage-crops", label: "Manage Crops", icon: "🌾", color: "#2e7d32" },
+    { path: "/add-crop", label: "Add New Crop", icon: "➕", color: "#388e3c" },
+    { path: "/seller-orders", label: "My Crop Orders", icon: "📦", color: "#1976d2" },
+    { path: "/products", label: "Buy Products", icon: "🛒", color: "#f57c00" },
+    { path: "/cart", label: "My Cart", icon: "🛍️", color: "#7b1fa2" },
     { path: "/crop-doctor", label: "Crop Doctor", icon: "👨‍⚕️", color: "#d32f2f" },
     { path: "/tracking", label: "Track Delivery", icon: "📍", color: "#7b1fa2" },
   ];
@@ -245,8 +246,15 @@ Example responses:
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>👨‍🌾 Farmer Dashboard</h1>
-        <p>Manage your crops, orders, and grow your business</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1>👨‍🌾 Farmer Dashboard</h1>
+            <p>Manage your crops, orders, and grow your business</p>
+          </div>
+          <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+            📦 View Orders
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}

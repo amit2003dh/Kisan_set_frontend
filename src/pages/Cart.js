@@ -19,8 +19,19 @@ export default function Cart() {
     }
   }, []);
 
+  const canCheckout = () => {
+    if (!currentUser) return false;
+    // Only farmers and buyers can checkout
+    return currentUser.role === "farmer" || currentUser.role === "buyer";
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    
+    if (!canCheckout()) {
+      alert("Sellers cannot checkout. You can only add and sell products.");
+      return;
+    }
     
     // Navigate to payment page with cart items
     const total = getCartTotal();

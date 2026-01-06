@@ -79,8 +79,20 @@ export default function SellerDashboard() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>🏠 Seller Dashboard</h1>
-        <p>Manage your products and track performance</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1>🏪 Seller Dashboard</h1>
+            <p>Manage your products and track sales performance</p>
+          </div>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+              📦 View Orders
+            </Link>
+            <Link to="/add-product" className="btn btn-secondary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+              ➕ Add Product
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}

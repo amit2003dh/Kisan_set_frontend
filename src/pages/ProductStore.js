@@ -1,52 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import API from "../api/api";
-import { apiCall } from "../api/api";
+import API, { apiCall } from "../api/api";
 import { useCart } from "../context/CartContext";
 
 export default function ProductStore() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState("all"); // all, seed, pesticide
+  const [filter, setFilter] = useState("all");
   const [currentUser, setCurrentUser] = useState(null);
   const { addToCart } = useCart();
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
-    // Get current user from localStorage
+    fetchProducts();
     const user = localStorage.getItem("user");
     if (user) {
       try {
-        const userData = JSON.parse(user);
-        setCurrentUser(userData);
+        setCurrentUser(JSON.parse(user));
       } catch (e) {
         console.error("Error parsing user data:", e);
       }
     }
-    fetchProducts();
   }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
     setError("");
     
-    // If user is a seller, only show their products
-    // If user is a buyer or no user, show all verified products
-    let url = "/products";
-    const user = localStorage.getItem("user");
-    if (user) {
-      try {
-        const userData = JSON.parse(user);
-        if (userData.role === "seller" && userData._id) {
-          url = `/products?sellerId=${userData._id}`;
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
-    
-    const { data, error: err } = await apiCall(() => API.get(url));
+    const { data, error: err } = await apiCall(() => API.get("/products"));
     
     if (err) {
       setError(err);
@@ -68,14 +50,23 @@ export default function ProductStore() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?._id]);
+  const canBuyProducts = () => {
+    if (!currentUser) return false;
+    // Farmers, Buyers can buy products. Sellers cannot.
+    return currentUser.role === "farmer" || currentUser.role === "buyer";
+  };
 
   const filteredProducts = filter === "all" 
     ? products 
     : products.filter(p => p.type === filter);
+
+  const handleAddToCart = (product) => {
+    if (!canBuyProducts()) {
+      alert("Sellers cannot buy products. You can only add and sell your own products.");
+      return;
+    }
+    addToCart(product);
+  };
 
   const getProductIcon = (type) => {
     return type === "seed" ? "🌱" : "🧪";
@@ -258,7 +249,27 @@ export default function ProductStore() {
                   <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
                     <div>
                       <strong>Stock:</strong> {product.stock || 0} units
+                      {product.initialStock && (
+                        <span style={{ fontSize: "12px", color: "#666", marginLeft: "8px" }}>
+                          (Initial: {product.initialStock})
+                        </span>
+                      )}
                     </div>
+                    {product.salesStats && (
+                      <div style={{ marginTop: "8px" }}>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          <strong>Total Sold:</strong> {product.salesStats.totalSold || 0} units
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          <strong>Revenue:</strong> ₹{(product.salesStats.totalRevenue || 0).toLocaleString('en-IN')}
+                        </div>
+                        {product.salesStats.averageRating && (
+                          <div style={{ fontSize: "12px", color: "#666" }}>
+                            <strong>Rating:</strong> ⭐ {product.salesStats.averageRating.toFixed(1)} ({product.salesStats.reviewCount || 0} reviews)
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 

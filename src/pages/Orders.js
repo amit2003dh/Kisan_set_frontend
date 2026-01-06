@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import ChatBox from "../components/ChatBox";
 
@@ -7,11 +7,28 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    // Get current user
+    const user = localStorage.getItem("user");
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setCurrentUser(userData);
+        
+        // Redirect sellers/farmers to their orders page
+        if (userData.role === "seller" || userData.role === "farmer") {
+          navigate("/seller-orders");
+        }
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+    }
+  }, [navigate]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -195,20 +212,48 @@ export default function Orders() {
                         </p>
                       </div>
                     </div>
-                    <span style={{
-                      display: "inline-flex",
+                    <div style={{
+                      display: "flex",
+                      gap: "8px",
                       alignItems: "center",
-                      gap: "6px",
-                      padding: "6px 12px",
-                      background: `${getStatusColor(order.status)}20`,
-                      color: getStatusColor(order.status),
-                      borderRadius: "20px",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      whiteSpace: "nowrap"
+                      marginBottom: "12px"
                     }}>
-                      {getStatusIcon(order.status)} {order.status || "Pending"}
-                    </span>
+                      <span style={{
+                        padding: "4px 12px",
+                        background: getStatusColor(order.status),
+                        color: "white",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "600"
+                      }}>
+                        {getStatusIcon(order.status)} {order.status}
+                      </span>
+                      {order.status === "Delivered" && (
+                        <button
+                          onClick={() => navigate(`/products?type=${order.itemType}`)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "12px", padding: "6px 12px" }}
+                        >
+                          🛒 Buy Again
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/orders/${order._id}/communication`)}
+                        className="btn btn-outline"
+                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                      >
+                        💬 {currentUser?.role === "buyer" ? "Message Seller" : "Message Buyer"}
+                      </button>
+                      {order.status === "Out for Delivery" && (
+                        <button
+                          onClick={() => navigate(`/orders/${order._id}/delivery-chat`)}
+                          className="btn btn-primary"
+                          style={{ fontSize: "12px", padding: "6px 12px" }}
+                        >
+                          🚚 Chat with Delivery Partner
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{

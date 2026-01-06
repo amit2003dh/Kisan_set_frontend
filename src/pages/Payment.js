@@ -204,6 +204,92 @@ export default function Payment() {
           alert("Payment Successful ✅");
           navigate("/orders");
         },
+        modal: {
+          ondismiss: async function() {
+            // Payment cancelled by user - switch to COD
+            console.log("Payment cancelled, switching to COD");
+            setLoading(true);
+            setError("Payment cancelled. Switching to Cash on Delivery...");
+            
+            try {
+              // Place order with COD
+              if (fromCart) {
+                await apiCall(() =>
+                  API.post("/orders/create-from-cart", {
+                    items: paymentDetails.items,
+                    buyerId: user._id,
+                    paymentMethod: "COD",
+                    address
+                  })
+                );
+                clearCart();
+              } else {
+                await apiCall(() =>
+                  API.post("/orders/create", {
+                    buyerId: user._id,
+                    itemId: paymentDetails.cropId || paymentDetails.productId,
+                    itemType: paymentDetails.itemType,
+                    quantity: 1,
+                    price: amount,
+                    total: amount,
+                    status: "Confirmed",
+                    paymentMethod: "COD",
+                    address
+                  })
+                );
+              }
+
+              alert("Order placed successfully with Cash on Delivery 🚚");
+              navigate("/orders");
+            } catch (err) {
+              setError("Failed to place COD order after payment cancellation");
+            } finally {
+              setLoading(false);
+            }
+          },
+          escape: async function() {
+            // Payment modal escaped - switch to COD
+            console.log("Payment modal escaped, switching to COD");
+            setLoading(true);
+            setError("Payment cancelled. Switching to Cash on Delivery...");
+            
+            try {
+              // Place order with COD
+              if (fromCart) {
+                await apiCall(() =>
+                  API.post("/orders/create-from-cart", {
+                    items: paymentDetails.items,
+                    buyerId: user._id,
+                    paymentMethod: "COD",
+                    address
+                  })
+                );
+                clearCart();
+              } else {
+                await apiCall(() =>
+                  API.post("/orders/create", {
+                    buyerId: user._id,
+                    itemId: paymentDetails.cropId || paymentDetails.productId,
+                    itemType: paymentDetails.itemType,
+                    quantity: 1,
+                    price: amount,
+                    total: amount,
+                    status: "Confirmed",
+                    paymentMethod: "COD",
+                    address
+                  })
+                );
+              }
+
+              alert("Order placed successfully with Cash on Delivery 🚚");
+              navigate("/orders");
+            } catch (err) {
+              setError("Failed to place COD order after payment cancellation");
+            } finally {
+              setLoading(false);
+            }
+          }
+        },
         prefill: {
           name: user?.name,
           email: user?.email,
@@ -240,12 +326,17 @@ export default function Payment() {
       ))}
 
       <h3>Payment Method</h3>
+      <div style={{ marginBottom: "16px", padding: "12px", background: "#f5f5f5", borderRadius: "8px" }}>
+        <p style={{ fontSize: "14px", color: "#666", marginBottom: "8px" }}>
+          💡 <strong>Smart Payment:</strong> If you cancel online payment, your order will automatically be placed with Cash on Delivery.
+        </p>
+      </div>
       <label>
         <input
           type="radio"
           checked={paymentMethod === "ONLINE"}
           onChange={() => setPaymentMethod("ONLINE")}
-        /> Online
+        /> Online Payment
       </label>
       <br />
       <label>

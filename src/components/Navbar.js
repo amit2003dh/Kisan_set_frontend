@@ -82,47 +82,61 @@ export default function Navbar() {
   };
 
   // Build navigation links based on user role
-  const navLinks = [
-    { path: "/crops", label: "🌾 Crops", icon: "🌾" },
-    { path: "/products", label: "🛒 Products", icon: "🛒" },
-    { path: "/crop-doctor", label: "🌿 Crop Doctor", icon: "🌿" }
-  ];
+  let navLinks = [];
 
-  // Add dashboard for farmers, sellers, and buyers
-  if (userData?.role === "farmer") {
-    navLinks.unshift({ path: "/farmer", label: "🏠 Dashboard", icon: "🏠" });
-  } else if (userData?.role === "seller") {
-    navLinks.unshift({ path: "/seller", label: "🏠 Dashboard", icon: "🏠" });
-  } else if (userData) {
-    // For users who are logged in but not farmers or sellers (buyers)
-    navLinks.unshift({ path: "/buyer", label: "🏠 Dashboard", icon: "🏠" });
+  // Delivery Partner Navigation
+  if (userData?.role === "delivery_partner") {
+    navLinks = [
+      { path: "/delivery-partner", label: "🏠 Dashboard", icon: "🏠" },
+      { path: "/delivery-partner/orders", label: "📦 My Orders", icon: "📦" },
+      { path: "/tracking", label: "📍 Tracking", icon: "📍" }
+    ];
+  } else {
+    // Other Users Navigation
+    navLinks = [
+      { path: "/crops", label: "🌾 Crops", icon: "🌾" },
+      { path: "/products", label: "🛒 Products", icon: "🛒" },
+      { path: "/crop-doctor", label: "🌿 Crop Doctor", icon: "🌿" }
+    ];
+
+    // Add dashboard for farmers, sellers, and buyers
+    if (userData?.role === "farmer") {
+      navLinks.unshift({ path: "/farmer", label: "🏠 Dashboard", icon: "🏠" });
+    } else if (userData?.role === "seller") {
+      navLinks.unshift({ path: "/seller", label: "🏠 Dashboard", icon: "🏠" });
+    } else if (userData) {
+      // For users who are logged in but not farmers or sellers (buyers)
+      navLinks.unshift({ path: "/buyer", label: "🏠 Dashboard", icon: "🏠" });
+    }
+
+    // Add Crop - only for farmers
+    if (userData?.role === "farmer") {
+      navLinks.push({ path: "/manage-crops", label: "🌾 Manage Crops", icon: "🌾" });
+      navLinks.push({ path: "/add-crop", label: "➕ Add Crop", icon: "➕" });
+    }
+
+    // Add Product - only for sellers
+    if (userData?.role === "seller") {
+      navLinks.push({ path: "/manage-products", label: "🛒 Manage Products", icon: "🛒" });
+      navLinks.push({ path: "/add-product", label: "🧪 Add Product", icon: "🧪" });
+    }
+
+    // Add Cart - for users who can buy (farmers and buyers, not sellers)
+    if (userData?.role === "farmer" || userData?.role === "buyer") {
+      navLinks.push({ 
+        path: "/cart", 
+        label: `🛒 Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, 
+        icon: "🛒" 
+      });
+    }
+
+    // Add Orders - for all users except delivery partners
+    navLinks.push({ 
+      path: "/orders", 
+      label: "📦 Orders", 
+      icon: "📦" 
+    });
   }
-
-  // Add Crop - only for farmers
-  if (userData?.role === "farmer") {
-    navLinks.push({ path: "/manage-crops", label: "🌾 Manage Crops", icon: "🌾" });
-    navLinks.push({ path: "/add-crop", label: "➕ Add Crop", icon: "➕" });
-  }
-
-  // Add Product - only for sellers
-  if (userData?.role === "seller") {
-    navLinks.push({ path: "/manage-products", label: "🛒 Manage Products", icon: "🛒" });
-    navLinks.push({ path: "/add-product", label: "🧪 Add Product", icon: "🧪" });
-  }
-
-  // Add Cart - for all users (buyers, farmers, sellers can all buy products)
-  navLinks.push({ 
-    path: "/cart", 
-    label: `🛒 Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, 
-    icon: "🛒" 
-  });
-
-  // Add Orders - for all users
-  navLinks.push({ 
-    path: "/orders", 
-    label: "📦 Orders", 
-    icon: "📦" 
-  });
 
   return (
     <>
@@ -155,20 +169,37 @@ export default function Navbar() {
           height: "70px"
         }}>
           {/* Logo */}
-          <Link 
-            to="/crops" 
-            style={{
-              textDecoration: "none",
-              fontSize: "24px",
-              fontWeight: "bold",
-              color: "var(--primary-blue)",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px"
-            }}
-          >
-            🌾 KisanSetu
-          </Link>
+          {userData?.role === "delivery_partner" ? (
+            <Link 
+              to="/delivery-partner" 
+              style={{
+                textDecoration: "none",
+                fontSize: "24px",
+                fontWeight: "bold",
+                color: "var(--primary-blue)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              🚚 DeliveryHub
+            </Link>
+          ) : (
+            <Link 
+              to="/crops" 
+              style={{
+                textDecoration: "none",
+                fontSize: "24px",
+                fontWeight: "bold",
+                color: "var(--primary-blue)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              🌾 KisanSetu
+            </Link>
+          )}
 
           {/* Navigation Links - Single Row */}
           <div style={{
