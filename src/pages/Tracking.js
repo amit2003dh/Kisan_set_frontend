@@ -1,21 +1,35 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import API from "../api/api";
-import { apiCall } from "../api/api";
+import API, { apiCall } from "../api/api";
 import LiveMap from "../components/LiveMap";
 import ChatBox from "../components/ChatBox";
+import useDeliverySocket from "../hooks/useDeliverySocket";
+import { estimateETA } from "../utils/eta";
 
 export default function Tracking() {
   const [searchParams] = useSearchParams();
   const deliveryId = searchParams.get("deliveryId");
-  const [location, setLocation] = useState({
-    lat: 22.7196,
-    lng: 75.8577
-  });
+
+  const [location, setLocation] = useState(null);
+  const [destination, setDestination] = useState(null);
   const [deliveryStatus, setDeliveryStatus] = useState("In Transit");
+  const [eta, setEta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [customerInfo, setCustomerInfo] = useState(null);
+  const [providerInfo, setProviderInfo] = useState(null);
 
+  // 🔄 Real-time socket updates
+  useDeliverySocket(deliveryId, (data) => {
+    setLocation({ lat: data.lat, lng: data.lng });
+    setDeliveryStatus(data.status || "In Transit");
+
+    if (destination) {
+      setEta(estimateETA(data, destination));
+    }
+  });
+
+  // Initial fetch (fallback + destination)
   useEffect(() => {
     if (!deliveryId) {
       setError("No delivery ID provided");
@@ -23,9 +37,9 @@ export default function Tracking() {
       return;
     }
 
-    const fetchLocation = async () => {
+    const fetchTrackingData = async () => {
       const { data, error: err } = await apiCall(() =>
-        API.get(`/delivery/location/${deliveryId}`)
+        API.get(`/delivery/tracking/${deliveryId}`)
       );
 
       if (err) {
@@ -34,24 +48,32 @@ export default function Tracking() {
         return;
       }
 
-      if (data) {
-        setLocation(data);
-        setDeliveryStatus(data.status || "In Transit");
+      /*
+        Expected backend response:
+        {
+          currentLocation: { lat, lng, status },
+          destination: { lat, lng, address }
+        }
+      */
+
+      setLocation(data.currentLocation);
+      setDestination(data.destination);
+      setDeliveryStatus(data.deliveryStatus || data.currentLocation?.status || "In Transit");
+      setCustomerInfo(data.customerInfo);
+      setProviderInfo(data.providerInfo);
+
+      if (data.destination) {
+        setEta(estimateETA(data.currentLocation, data.destination));
       }
+
       setLoading(false);
     };
 
-    // Initial fetch
-    fetchLocation();
-
-    // Poll every 5 seconds
-    const interval = setInterval(fetchLocation, 5000);
-
-    return () => clearInterval(interval);
+    fetchTrackingData();
   }, [deliveryId]);
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
+    <div className="container" style={{ padding: "40px 0" }}>
       <div className="page-header">
         <h1>📍 Live Delivery Tracking</h1>
         <p>Track your order in real-time</p>
@@ -59,90 +81,99 @@ export default function Tracking() {
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "32px", marginBottom: "32px" }}>
-        {/* Map Section */}
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{
-            background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
-            color: "white",
-            padding: "20px"
-          }}>
-            <h2 style={{ margin: 0, fontSize: "20px" }}>📍 Current Location</h2>
-            <p style={{ margin: "8px 0 0 0", opacity: 0.9, fontSize: "14px" }}>
-              Delivery Partner Location
-            </p>
-          </div>
-          <div style={{ height: "400px", position: "relative" }}>
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: "1fr 1fr", gap: "32px" }}
+      >
+        {/* MAP */}
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ height: "420px" }}>
             {loading ? (
-              <div style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                textAlign: "center"
-              }}>
-                <div className="loading-spinner"></div>
-                <p style={{ color: "var(--text-secondary)", marginTop: "16px" }}>
-                  Loading location...
-                </p>
-              </div>
+              <div className="loading-spinner" />
             ) : (
-              <LiveMap location={location} />
+              <LiveMap
+                location={location}
+                destination={destination}
+              />
             )}
           </div>
         </div>
 
-        {/* Status Section */}
-        <div className="card">
-          <h2 style={{ marginBottom: "24px", fontSize: "20px", color: "var(--text-primary)" }}>
-            Delivery Status
-          </h2>
+        {/* STATUS & INFO */}
+        <div>
+          <div className="card">
+            <h2>Delivery Status</h2>
 
-          <div style={{
-            background: "var(--background)",
-            borderRadius: "var(--border-radius-sm)",
-            padding: "24px",
-            marginBottom: "24px",
-            textAlign: "center"
-          }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>
-              {deliveryStatus === "Delivered" ? "✅" : 
-               deliveryStatus === "Out for Delivery" ? "🚚" : 
-               deliveryStatus === "In Transit" ? "🚛" : "📦"}
+            <div style={{ textAlign: "center", padding: "20px" }}>
+              <div style={{ fontSize: "48px" }}>
+                {deliveryStatus === "Delivered"
+                  ? "✅"
+                  : deliveryStatus === "Out for Delivery"
+                  ? "🚚"
+                  : "🚛"}
+              </div>
+
+              <h3>{deliveryStatus}</h3>
+
+              {eta && (
+                <p style={{ marginTop: "12px" }}>
+                  ⏱ Estimated Arrival: <strong>{eta} mins</strong>
+                </p>
+              )}
+
+              {destination?.address && (
+                <p style={{ fontSize: "14px", marginTop: "12px" }}>
+                  🏠 {destination.address}
+                </p>
+              )}
             </div>
-            <h3 style={{
-              fontSize: "24px",
-              fontWeight: "700",
-              color: "var(--text-primary)",
-              marginBottom: "8px"
-            }}>
-              {deliveryStatus}
-            </h3>
-            {deliveryId && (
-              <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-                Delivery ID: <strong>{deliveryId}</strong>
-              </p>
-            )}
           </div>
 
-          <div style={{
-            background: "#e3f2fd",
-            borderLeft: "4px solid #1976d2",
-            padding: "16px",
-            borderRadius: "var(--border-radius-sm)",
-            fontSize: "14px",
-            color: "#1565c0"
-          }}>
-            <strong>ℹ️ Note:</strong> Location updates every 5 seconds. The delivery partner's current location is shown on the map.
-          </div>
+          {/* Provider Information */}
+          {providerInfo && (
+            <div className="card" style={{ marginTop: "16px" }}>
+              <h3>🚚 Delivery Partner</h3>
+              <div style={{ fontSize: "14px" }}>
+                <p><strong>Name:</strong> {providerInfo.name}</p>
+                {providerInfo.phone && (
+                  <p><strong>Phone:</strong> {providerInfo.phone}</p>
+                )}
+                {providerInfo.address && (
+                  <p><strong>Location:</strong> {
+                    typeof providerInfo.address === 'string' 
+                      ? providerInfo.address 
+                      : providerInfo.address.address || "Location not available"
+                  }</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Information */}
+          {customerInfo && (
+            <div className="card" style={{ marginTop: "16px" }}>
+              <h3>👤 Customer</h3>
+              <div style={{ fontSize: "14px" }}>
+                <p><strong>Name:</strong> {customerInfo.name}</p>
+                {customerInfo.phone && (
+                  <p><strong>Phone:</strong> {customerInfo.phone}</p>
+                )}
+                {customerInfo.address && (
+                  <p><strong>Address:</strong> {
+                    typeof customerInfo.address === 'string' 
+                      ? customerInfo.address 
+                      : customerInfo.address.address || "Address not available"
+                  }</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Chat Section */}
-      <div className="card">
-        <h2 style={{ marginBottom: "24px", fontSize: "20px", color: "var(--text-primary)" }}>
-          💬 Chat with Delivery Partner
-        </h2>
+      {/* CHAT */}
+      <div className="card" style={{ marginTop: "32px" }}>
+        <h2>💬 Chat with Delivery Partner</h2>
         <ChatBox />
       </div>
     </div>

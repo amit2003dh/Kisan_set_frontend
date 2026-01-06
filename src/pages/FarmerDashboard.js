@@ -47,79 +47,189 @@ export default function FarmerDashboard() {
     recognition.lang = "hi-IN";
     recognition.continuous = false;
     recognition.interimResults = false;
+    recognition.maxAlternatives = 3; // Get multiple recognition results
 
     setListening(true);
-    setVoiceResult("");
+    setVoiceResult("🎤 Listening... Speak clearly in Hindi or English");
 
     recognition.onstart = () => {
-      setVoiceResult("Listening... 👂 Speak now!");
+      console.log("Voice recognition started");
+      setVoiceResult("🎤 Listening... Speak clearly in Hindi or English");
+    };
+
+    recognition.onspeechstart = () => {
+      setVoiceResult("👂 Hearing you... Speak now!");
+    };
+
+    recognition.onspeechend = () => {
+      setVoiceResult("🔄 Processing your voice...");
+      setListening(false);
     };
 
     recognition.onresult = async (e) => {
-      const transcript = e.results[0][0].transcript;
-      setListening(false);
-      setVoiceResult(`You said: "${transcript}"\nProcessing...`);
+      console.log("Speech recognition result:", e.results);
+      
+      // Get the best result with highest confidence
+      let bestTranscript = "";
+      let bestConfidence = 0;
+      
+      for (let i = 0; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) {
+          for (let j = 0; j < result.length; j++) {
+            const alternative = result[j];
+            if (alternative.confidence > bestConfidence) {
+              bestConfidence = alternative.confidence;
+              bestTranscript = alternative.transcript;
+            }
+          }
+        }
+      }
+
+      // Fallback to first result if no confidence data
+      if (!bestTranscript && e.results[0] && e.results[0][0]) {
+        bestTranscript = e.results[0][0].transcript;
+      }
+
+      const transcript = bestTranscript.trim();
+      console.log("Final transcript:", transcript, "Confidence:", bestConfidence);
+
+      if (!transcript) {
+        setVoiceResult("❌ Could not understand your speech. Please try again speaking clearly.");
+        return;
+      }
+
+      setVoiceResult(`✅ You said: "${transcript}"\n🔄 Processing your request...`);
 
       try {
+        // Only predefined greetings - everything else goes to Gemini AI
+        const lowerTranscript = transcript.toLowerCase().trim();
+        
+        // Check for basic greetings only
+        if (lowerTranscript.match(/^(नमस्ते|hello|hi|hey|good morning|good afternoon|good evening|namaste)/)) {
+          const greetingResponse = "नमस्ते किसान भाई! मैं आपकी खेती मदद के लिए यहाँ हूं। कृपया अपनी समस्या बताएं।";
+          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${greetingResponse}`);
+          speakResponse(greetingResponse);
+          return;
+        }
+        
+        // All other queries go directly to Gemini AI
+        const enhancedPrompt = `
+You are an expert agriculture assistant for KisanSetu platform, specifically designed to help Indian farmers with practical farming advice. A farmer said: "${transcript}"
+
+Your task:
+- Provide SPECIFIC, ACTIONABLE advice for farmers
+- Respond in the SAME language as the query (Hindi or English)
+- Keep responses concise but detailed (2-3 sentences maximum)
+- Be professional yet friendly like a farming expert
+- Always give practical, implementable solutions
+- Include specific next steps when possible
+- NO PHOTO REQUESTS - This is voice-only assistance
+
+IMPORTANT: Always provide specific, actionable advice that farmers can implement immediately. If you need more information, ask specific questions. Avoid vague responses.
+
+Example responses:
+- "मेरी फसल पीली है" → "आपकी फसल की पीली रोग के लिए नीम तेल 5ml प्रति लीटर पानी में मिलाकर स्प्रे करें। फसल का नाम और पत्ते बताएं ताकि मैं उपचारित उपाय सुझा सकूं।"
+- "गेहूं का भाव" → "आज गेहूं का भाव ₹2500-2800 प्रति क्विंटल है। अपनी फसल की गुणवत्ता के अनुसार बेहतर भाव पाएं। बाजार समिति के लिए सुबह 10 बजे पर जाएं।"
+- "मेरा ऑर्डर कहाँ है" → "अपने ऑर्डर की स्थिति देखने के लिए डैशबोर्ड पर 'ऑर्डर' सेक्शन पर जाएं। आप वहां ट्रैकिंग नंबर से अपना ऑर्डर ट्रैक कर सकते हैं।"
+`;
+
         const { data, error: err } = await apiCall(() => 
-          API.post("/gemini/voice-intent", { text: transcript })
+          API.post("/gemini/voice-intent", { 
+            text: transcript,
+            prompt: enhancedPrompt 
+          })
         );
         
         if (err) {
-          // Handle API errors
-          if (err.includes("not configured") || err.includes("API key")) {
-            setVoiceResult(`Recognized: "${transcript}"\n\n💡 Tip: Voice assistant needs Gemini API configuration. Your query was recognized successfully!`);
-          } else if (err.includes("quota") || err.includes("limit")) {
-            setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ API limit reached. Your query was recognized but intent analysis is temporarily unavailable.`);
-          } else {
-            setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ ${err}`);
-          }
-        } else if (data?.intent) {
-          setVoiceResult(`You said: "${transcript}"\n\n💡 ${data.intent}`);
+          console.error("API Error:", err);
+          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं। कृपया अपनी समस्या स्पष्ट रूप से बताएं।`);
+          speakResponse("कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं।");
+        } else if (data?.success && data?.intent) {
+          // Success - AI provided response
+          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${data.intent}`);
+          speakResponse(data.intent);
+        } else if (data?.fallback) {
+          // Gemini failed but provided fallback
+          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 AI सहायता अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर से प्रयास करें।`);
+          speakResponse("AI सहायता अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर से प्रयास करें।");
         } else {
-          setVoiceResult(`Recognized: "${transcript}"`);
+          // Gemini didn't provide a valid response
+          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 AI से कोई प्रतिक्रिया नहीं मिली। कृपया अपना प्रश्न फिर से बताएं।`);
+          speakResponse("AI से कोई प्रतिक्रिया नहीं मिली। कृपया अपना प्रश्न फिर से बताएं।");
         }
       } catch (error) {
         console.error("Voice intent error:", error);
-        setVoiceResult(`Recognized: "${transcript}"\n\n⚠️ Could not process intent. Please try again.`);
+        setVoiceResult(`✅ You said: "${transcript}"\n\n💡 कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं। कृपया अपनी समस्या स्पष्ट रूप से बताएं।`);
+        speakResponse("कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं।");
       }
     };
 
     recognition.onerror = (e) => {
+      console.error("Speech recognition error:", e.error);
       setListening(false);
-      let errorMsg = "Error: Could not recognize speech. ";
       
+      let errorMessage = "❌ ";
       switch(e.error) {
-        case "no-speech":
-          errorMsg = "⚠️ No speech detected. Please try again and speak clearly.";
+        case 'no-speech':
+          errorMessage = "❌ No speech detected. Please try again.";
           break;
-        case "audio-capture":
-          errorMsg = "⚠️ No microphone found. Please check your microphone settings.";
+        case 'audio-capture':
+          errorMessage = "❌ Microphone not available. Please check your microphone permissions.";
           break;
-        case "not-allowed":
-          errorMsg = "⚠️ Microphone permission denied. Please allow microphone access and try again.";
+        case 'not-allowed':
+          errorMessage = "❌ Microphone access denied. Please allow microphone access in your browser.";
           break;
-        case "network":
-          errorMsg = "⚠️ Network error. Please check your internet connection.";
+        case 'network':
+          errorMessage = "❌ Network error. Please check your internet connection.";
           break;
         default:
-          errorMsg = `⚠️ Error: ${e.error}. Please try again.`;
+          errorMessage = "❌ Voice recognition failed. Please try again.";
       }
       
-      setVoiceResult(errorMsg);
-      console.error("Recognition error:", e.error);
+      setVoiceResult(errorMessage);
     };
 
     recognition.onend = () => {
+      console.log("Voice recognition ended");
       setListening(false);
     };
 
+    // Start recognition
     try {
       recognition.start();
     } catch (error) {
+      console.error("Failed to start recognition:", error);
+      setVoiceResult("❌ Failed to start voice recognition. Please refresh and try again.");
       setListening(false);
-      setVoiceResult("⚠️ Could not start voice recognition. Please try again.");
-      console.error("Recognition start error:", error);
+    }
+  };
+
+  // Text-to-speech for responses
+  const speakResponse = (text) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'hi-IN';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onstart = () => {
+        console.log("Speaking response...");
+      };
+      
+      utterance.onend = () => {
+        console.log("Speech completed");
+      };
+      
+      utterance.onerror = (e) => {
+        console.error("Speech error:", e);
+      };
+      
+      window.speechSynthesis.speak(utterance);
     }
   };
 

@@ -1,6 +1,10 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import FarmerDashboard from "./pages/FarmerDashboard";
+import SellerDashboard from "./pages/SellerDashboard";
+import BuyerDashboard from "./pages/BuyerDashboard";
+import ManageCrops from "./pages/ManageCrops";
+import ManageProducts from "./pages/ManageProducts";
 import CropList from "./pages/CropList";
 import AddCrop from "./pages/AddCrop";
 import AddProduct from "./pages/AddProduct";
@@ -24,6 +28,10 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/farmer" element={<FarmerDashboard />} />
+        <Route path="/seller" element={<SellerDashboard />} />
+        <Route path="/buyer" element={<BuyerDashboard />} />
+        <Route path="/manage-crops" element={<ProtectedRoute requiredRole="farmer"><ManageCrops /></ProtectedRoute>} />
+        <Route path="/manage-products" element={<ProtectedRoute requiredRole="seller"><ManageProducts /></ProtectedRoute>} />
         <Route path="/add-crop" element={<ProtectedRoute requiredRole="farmer"><AddCrop /></ProtectedRoute>} />
         <Route path="/add-product" element={<ProtectedRoute requiredRole="seller"><AddProduct /></ProtectedRoute>} />
         <Route path="/crops" element={<CropList />} />
