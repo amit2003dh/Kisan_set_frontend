@@ -7,6 +7,9 @@ const connectDB = require("./config/db");
 const http = require("http");
 const { Server } = require("socket.io");
 
+// Import all models to ensure they are registered
+require("./models");
+
 const app = express();
 const server = http.createServer(app);
 
@@ -33,17 +36,148 @@ app.use("/api/delivery", require("./routes/deliveryRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/gemini", require("./routes/geminiRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
+app.use("/api/tracker", require("./routes/trackerRoutes"));
+app.use("/api/chat", require("./routes/chatRoutes"));
 
 // Socket.io AFTER middleware
 const io = new Server(server, {
   cors: { origin: "*" }
 });
 
+// Export io for use in other modules
+module.exports.io = io;
+
+// Track online users
+const onlineUsers = new Map(); // userId -> socketId
+
 io.on("connection", (socket) => {
-  socket.on("sendMessage", (msg) => {
-    io.emit("receiveMessage", msg);
+  console.log("User connected:", socket.id);
+
+  // Handle user authentication and online status
+  socket.on("authenticate", (userData) => {
+    const { userId, userRole, name } = userData;
+    socket.userId = userId;
+    socket.userRole = userRole;
+    socket.name = name;
+    
+    // Store user as online
+    onlineUsers.set(userId, {
+      socketId: socket.id,
+      userRole,
+      name,
+      lastSeen: new Date()
+    });
+
+    // Broadcast online status
+    socket.broadcast.emit("userOnline", { userId, userRole, name });
+    
+    // Join user to their personal room for direct messages
+    socket.join(`user_${userId}`);
+    
+    console.log(`User ${name} (${userRole}) is now online`);
+  });
+
+  // Handle chat joining
+  socket.on("joinChat", (chatId) => {
+    socket.join(chatId);
+    console.log(`User ${socket.userId} joined chat ${chatId}`);
+  });
+
+  // Handle sending messages (works for both online and offline users)
+  socket.on("sendMessage", async (data) => {
+    const { chatId, message, senderId, recipientId } = data;
+    
+    // Store message in database via API
+    try {
+      // This would normally call the chat service
+      // For now, we'll broadcast to the chat room
+      socket.to(chatId).emit("newMessage", {
+        chatId,
+        message: {
+          ...message,
+          timestamp: new Date()
+        }
+      });
+
+      // If recipient is online, send them a notification
+      if (recipientId && onlineUsers.has(recipientId)) {
+        socket.to(`user_${recipientId}`).emit("newMessageNotification", {
+          chatId,
+          message,
+          senderId
+        });
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  });
+
+  // Handle typing indicators
+  socket.on("typing", (data) => {
+    const { chatId, userId, isTyping } = data;
+    socket.to(chatId).emit("userTyping", { userId, isTyping });
+  });
+
+  // Handle delivery location updates
+  socket.on("joinDelivery", (deliveryId) => {
+    socket.join(deliveryId);
+  });
+
+  socket.on("updateLocation", ({ deliveryId, lat, lng, status }) => {
+    io.to(deliveryId).emit("locationUpdate", {
+      lat, lng, status
+    });
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    if (socket.userId) {
+      const user = onlineUsers.get(socket.userId);
+      if (user) {
+        // Update last seen
+        onlineUsers.set(socket.userId, {
+          ...user,
+          lastSeen: new Date()
+        });
+
+        // Broadcast offline status
+        socket.broadcast.emit("userOffline", {
+          userId: socket.userId,
+          userRole: socket.userRole,
+          name: socket.name,
+          lastSeen: new Date()
+        });
+
+        console.log(`User ${socket.name} (${socket.userRole}) is now offline`);
+      }
+      
+      onlineUsers.delete(socket.userId);
+    }
+    console.log("User disconnected:", socket.id);
   });
 });
+
+// Helper function to check if user is online
+const isUserOnline = (userId) => {
+  return onlineUsers.has(userId);
+};
+
+// Helper function to get online users by role
+const getOnlineUsersByRole = (role) => {
+  const users = [];
+  for (const [userId, user] of onlineUsers) {
+    if (user.userRole === role) {
+      users.push({ userId, ...user });
+    }
+  }
+  return users;
+};
+
+// Export helper functions
+module.exports.onlineUsers = onlineUsers;
+module.exports.isUserOnline = isUserOnline;
+module.exports.getOnlineUsersByRole = getOnlineUsersByRole;
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
 

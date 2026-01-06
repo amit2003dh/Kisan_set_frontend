@@ -22,7 +22,7 @@ router.post("/voice-intent", async (req, res) => {
       });
     }
 
-    const { text } = req.body;
+    const { text, prompt } = req.body;
 
     // Input validation
     if (!text || typeof text !== "string" || text.trim().length === 0) {
@@ -33,26 +33,32 @@ router.post("/voice-intent", async (req, res) => {
       });
     }
 
-    // Intent-focused prompt (language-preserving)
-    const prompt = `
-You are an AI assistant for KisanSetu, an agriculture platform for farmers.
+    // Use enhanced prompt if provided, otherwise use default
+    const finalPrompt = prompt || `
+You are an expert agriculture assistant for KisanSetu platform, specifically designed to help Indian farmers with practical farming advice.
 
 A farmer said:
 "${text.trim()}"
 
 Your task:
-- Identify the farmer's intent
-- Respond in the SAME language as the query
-- Keep the response concise (1–2 sentences)
-- Be helpful and farmer-friendly
+- Provide SPECIFIC, ACTIONABLE advice for farmers
+- Respond in the SAME language as the query (Hindi or English)
+- Keep responses concise but detailed (2-3 sentences maximum)
+- Be professional yet friendly like a farming expert
+- Always give practical, implementable solutions
+- Include specific next steps when possible
 
-Possible intents include:
-- Crop health / disease (Crop Doctor)
-- Selling crops
-- Buying seeds or pesticides
-- Tracking delivery
-- Viewing orders
-- General farming guidance
+Farmer-Specific Response Guidelines:
+- For crop health: Ask for crop name, symptoms, and photos. Suggest specific treatments.
+- For market prices: Ask for crop name and location. Give current market trends.
+- For orders: Direct to dashboard with specific steps.
+- For pesticides: Ask for crop and pest type. Recommend safe, approved options.
+- For fertilizers: Ask for soil type and crop. Suggest NPK ratios.
+- For weather: Ask for location. Give 7-day forecast and farming advice.
+- For irrigation: Ask for crop and soil moisture. Give water-saving tips.
+- For seeds: Ask for crop and season. Recommend high-yield varieties.
+
+IMPORTANT: Always provide specific, actionable advice that farmers can implement immediately. Avoid vague responses. If you need more information, ask specific questions.
 `;
 
     // Gemini REST v1 call (STABLE)
@@ -66,7 +72,7 @@ Possible intents include:
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text: prompt }]
+              parts: [{ text: finalPrompt }]
             }
           ]
         })
@@ -76,22 +82,30 @@ Possible intents include:
     const data = await response.json();
 
     // Handle Gemini-side errors
-   // If Gemini blocked or returned no candidates
-if (!data.candidates || data.candidates.length === 0) {
-  console.warn("⚠️ Gemini returned no candidates:", JSON.stringify(data, null, 2));
+    if (!data.candidates || data.candidates.length === 0) {
+      console.warn("⚠️ Gemini returned no candidates:", JSON.stringify(data, null, 2));
 
-  return res.json({
-    success: true,
-    intent: "आप अपनी फसल की स्थिति जानना चाहते हैं। बेहतर सलाह के लिए कृपया फसल का नाम, समस्या या उसकी फोटो साझा करें।",
-    originalText: text.trim(),
-    fallback: true
-  });
-}
+      return res.json({
+        success: false,
+        error: "Gemini returned no response",
+        message: "AI could not process your request. Please try again.",
+        fallback: true
+      });
+    }
 
+    // Get the actual Gemini AI response
+    const intentText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
-    const intentText =
-  data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-  "आप खेती से जुड़ी जानकारी चाहते हैं। कृपया थोड़ा और विवरण दें।";
+    if (!intentText) {
+      return res.json({
+        success: false,
+        error: "No response from Gemini",
+        message: "AI could not generate a response. Please try again.",
+        fallback: true
+      });
+    }
+
+    console.log("✅ Gemini AI Response:", intentText);
 
     res.json({
       success: true,

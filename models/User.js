@@ -2,6 +2,37 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
+const addressSchema = new mongoose.Schema({
+  address: { type: String },
+  city: String,
+  state: String,
+  pincode: String,
+  lat: Number,
+  lng: Number
+});
+
+const businessLocationSchema = new mongoose.Schema({
+  farmName: String,
+  businessName: String,
+  address: { type: String, required: true },
+  city: String,
+  state: String,
+  pincode: String,
+  lat: { type: Number, required: true },
+  lng: { type: Number, required: true },
+  landmark: String,
+  serviceRadius: { type: Number, default: 50 }, // km
+  businessHours: {
+    monday: { open: String, close: String },
+    tuesday: { open: String, close: String },
+    wednesday: { open: String, close: String },
+    thursday: { open: String, close: String },
+    friday: { open: String, close: String },
+    saturday: { open: String, close: String },
+    sunday: { open: String, close: String }
+  }
+});
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
@@ -21,7 +52,18 @@ const userSchema = new mongoose.Schema({
     enum: ["farmer", "buyer", "seller", "delivery", "admin"],
     default: "farmer"
   },
-  location: String
+  location: String, // Keep for backward compatibility
+  address: addressSchema,
+  businessLocation: businessLocationSchema, // For farmers and sellers
+  isVerified: { type: Boolean, default: false },
+  verificationDocuments: [String], // URLs to verification docs
+  rating: { type: Number, default: 0, min: 0, max: 5 },
+  totalReviews: { type: Number, default: 0 },
+  preferences: {
+    notifications: { type: Boolean, default: true },
+    language: { type: String, default: "english" },
+    currency: { type: String, default: "INR" }
+  }
 }, {
   timestamps: true
 });
