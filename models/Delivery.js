@@ -2,21 +2,41 @@
 const mongoose = require("mongoose");
 
 const deliverySchema = new mongoose.Schema({
-  orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
-  partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
+  partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryPartner' },
+  assignedAt: { type: Date },
+  pickedUpAt: { type: Date },
+  deliveredAt: { type: Date },
   currentLocation: {
     lat: { type: Number, required: true },
     lng: { type: Number, required: true },
-    status: { type: String, default: "In Transit" }
+    status: { type: String, default: "Assigned" },
+    lastUpdated: { type: Date, default: Date.now }
   },
-  status: { type: String, default: "Assigned" },
+  status: { 
+    type: String, 
+    enum: ["Assigned", "Picked Up", "In Transit", "Delivered", "Failed"], 
+    default: "Assigned" 
+  },
   destination: {
     lat: Number,
     lng: Number,
-    address: String
+    address: String,
+    city: String,
+    state: String,
+    pincode: String
   },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  estimatedDeliveryTime: Date,
+  actualDeliveryTime: Date,
+  deliveryNotes: String,
+  deliveryProof: {
+    photo: String,
+    signature: String,
+    recipientName: String,
+    timestamp: Date
+  }
+}, {
+  timestamps: true
 });
 
 // Update the updatedAt field on save

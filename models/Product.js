@@ -17,7 +17,8 @@ const productSchema = new mongoose.Schema({
   type: { type: String, enum: ["seed","pesticide"], required: true },
   crop: String,
   price: { type: Number, required: true },
-  stock: { type: Number, required: true },
+  stock: { type: Number, required: true, min: 0 },
+  initialStock: { type: Number, required: true, min: 0 }, // Track original stock
   verified: { type: Boolean, default: false },
   image: String,
   images: [String], // Multiple images support
@@ -42,6 +43,12 @@ const productSchema = new mongoose.Schema({
     available: { type: Boolean, default: true },
     cost: Number,
     estimatedDays: Number
+  },
+  salesStats: {
+    totalSold: { type: Number, default: 0 },
+    totalRevenue: { type: Number, default: 0 },
+    averageRating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 }
   }
 }, {
   timestamps: true

@@ -33,6 +33,7 @@ app.use("/api/crops", require("./routes/cropRoutes"));
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/delivery", require("./routes/deliveryRoutes"));
+app.use("/api/delivery-partner", require("./routes/deliveryPartnerRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/gemini", require("./routes/geminiRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));

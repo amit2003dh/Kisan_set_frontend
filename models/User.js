@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema({
   profilePhoto: String,
   role: {
     type: String,
-    enum: ["farmer", "buyer", "seller", "delivery", "admin"],
+    enum: ["farmer", "buyer", "seller", "delivery_partner", "admin"],
     default: "farmer"
   },
   location: String, // Keep for backward compatibility
