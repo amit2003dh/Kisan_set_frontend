@@ -6,6 +6,8 @@ const authMiddleware = require("../middleware/auth");
 
 router.post("/create", async (req, res) => {
   try {
+    console.log("🛒 Creating single order:", req.body);
+    
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({
         error: "Database not connected",
@@ -21,20 +23,89 @@ router.post("/create", async (req, res) => {
       const Product = require("../models/Product");
       const product = await Product.findById(itemId);
       sellerId = product?.sellerId;
+      console.log("📦 Product sellerId:", sellerId);
     } else if (itemType === "crop") {
       const Crop = require("../models/Crop");
       const crop = await Crop.findById(itemId);
       sellerId = crop?.farmerId;
+      console.log("🌾 Crop farmerId:", sellerId);
+    }
+
+    // Get seller/buyer information
+    let sellerInfo = null;
+    let buyerInfo = null;
+    
+    if (sellerId) {
+      const User = require("../models/User");
+      const seller = await User.findById(sellerId);
+      sellerInfo = {
+        name: seller.name,
+        phone: seller.phone,
+        email: seller.email,
+        businessName: seller.businessName || seller.name
+      };
+    }
+    
+    if (req.userId) {
+      const User = require("../models/User");
+      const buyer = await User.findById(req.userId);
+      buyerInfo = {
+        name: buyer.name,
+        phone: buyer.phone,
+        email: buyer.email,
+        deliveryAddress: finalDeliveryAddress
+      };
     }
 
     const orderData = {
       ...req.body,
-      sellerId: sellerId
+      sellerId: sellerId,
+      buyerId: req.userId,
+      orderType: itemType === "crop" ? "crop_sale" : "product_purchase",
+      sellerInfo: sellerInfo,
+      buyerInfo: buyerInfo
     };
+
+    console.log("📋 Final order data:", orderData);
+    console.log("👤 Creating order for user role:", req.user?.role);
+    console.log("💾 Will save with buyerId:", req.userId);
+    console.log("🎯 Order type set to:", orderData.orderType);
+    console.log("📦 Item type:", itemType);
 
     const order = new Order(orderData);
     await order.save();
-    res.send(order);
+
+    console.log("✅ Order created successfully:", order._id);
+    console.log("✅ Order buyerId in DB:", order.buyerId);
+    console.log("✅ Order sellerId in DB:", order.sellerId);
+    console.log("✅ Order orderType in DB:", order.orderType);
+
+    // Create delivery record
+    const Delivery = require("../models/Delivery");
+    const delivery = new Delivery({
+      orderId: order._id,
+      currentLocation: {
+        lat: 0,
+        lng: 0,
+        status: "Confirmed"
+      },
+      status: "Assigned",
+      destination: orderData.deliveryAddress ? {
+        lat: orderData.deliveryAddress.lat || 0,
+        lng: orderData.deliveryAddress.lng || 0,
+        address: orderData.deliveryAddress.address || "Address not available"
+      } : null
+    });
+    await delivery.save();
+
+    console.log("✅ Delivery created successfully:", delivery._id);
+
+    res.json({
+      success: true,
+      order,
+      delivery
+    });
+
   } catch (error) {
     console.error("Create order error:", error);
     res.status(500).json({
@@ -45,8 +116,10 @@ router.post("/create", async (req, res) => {
 });
 
 // Create multiple orders from cart items
-router.post("/create-from-cart", authMiddleware, async (req, res) => {
+router.post("/create-from-cart", async (req, res) => {
   try {
+    console.log("🛒 Creating orders from cart:", req.body);
+    
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({
         error: "Database not connected",
@@ -62,6 +135,8 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
         message: "Cart items are required"
       });
     }
+
+    console.log("📦 Cart items:", items.length);
 
     // Get user's address if delivery address not provided
     let finalDeliveryAddress = deliveryAddress;
@@ -90,20 +165,54 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
       groupedItems[key].items.push(item);
     });
 
-    // Create single orders for each product group
+    console.log("📋 Grouped items:", Object.keys(groupedItems).length);
+
+    // Create orders for each product group
     const orders = await Promise.all(
       Object.values(groupedItems).map(async (group) => {
         let sellerId = null;
+        let sellerInfo = null;
+        let buyerInfo = null;
         
         // Get sellerId based on item type
         if (group.type === "seed" || group.type === "pesticide") {
           const Product = require("../models/Product");
           const product = await Product.findById(group.itemId);
           sellerId = product?.sellerId;
+          
+          const User = require("../models/User");
+          const seller = await User.findById(sellerId);
+          sellerInfo = {
+            name: seller.name,
+            phone: seller.phone,
+            email: seller.email,
+            businessName: seller.businessName || seller.name
+          };
         } else if (group.type === "crop") {
           const Crop = require("../models/Crop");
           const crop = await Crop.findById(group.itemId);
           sellerId = crop?.farmerId;
+          
+          const User = require("../models/User");
+          const farmer = await User.findById(sellerId);
+          sellerInfo = {
+            name: farmer.name,
+            phone: farmer.phone,
+            email: farmer.email,
+            businessName: farmer.businessName || farmer.name
+          };
+        }
+
+        // Get buyer information
+        if (req.userId) {
+          const User = require("../models/User");
+          const buyer = await User.findById(req.userId);
+          buyerInfo = {
+            name: buyer.name,
+            phone: buyer.phone,
+            email: buyer.email,
+            deliveryAddress: finalDeliveryAddress
+          };
         }
 
         const order = new Order({
@@ -118,11 +227,25 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
           paymentId: paymentId || undefined,
           paymentMethod: req.body.paymentMethod || "COD",
           deliveryAddress: finalDeliveryAddress,
-          orderItems: group.items // Store individual cart items for reference
+          orderItems: group.items, // Store individual cart items for reference,
+          orderType: group.type === "crop" ? "crop_sale" : "product_purchase",
+          sellerInfo: sellerInfo,
+          buyerInfo: buyerInfo
         });
-        return order.save();
+        
+        console.log(`💾 Saving order with buyerId: ${req.userId || buyerId}`);
+        console.log(`👤 Saving order with sellerId: ${sellerId}`);
+        console.log(`✅ Order type: ${group.type === "crop" ? "crop_sale" : "product_purchase"}`);
+        
+        const savedOrder = await order.save();
+        console.log(`✅ Order created: ${savedOrder._id}`);
+        console.log(`✅ Order buyerId in DB: ${savedOrder.buyerId}`);
+        console.log(`✅ Order sellerId in DB: ${savedOrder.sellerId}`);
+        return savedOrder;
       })
     );
+
+    console.log("📦 All orders created:", orders.length);
 
     // Decrease product quantities for all items
     await Promise.all(
@@ -279,8 +402,11 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/", authMiddleware, async (req, res) => {
+// Get seller/farmer orders (crop sales only)
+router.get("/seller-orders", authMiddleware, async (req, res) => {
   try {
+    console.log("🏪 Fetching seller/farmer orders for user:", req.userId);
+    
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({
         error: "Database not connected",
@@ -299,26 +425,185 @@ router.get("/", authMiddleware, async (req, res) => {
       });
     }
 
+    console.log("👤 User role:", currentUser.role);
+
+    // Only return orders where user is seller (crop sales)
+    let orders = [];
+    
+    if (currentUser.role === "seller" || currentUser.role === "farmer") {
+      // Sellers and farmers see orders where they are the seller
+      // For farmers: only crop sales
+      // For sellers: only product sales
+      const orderTypeFilter = currentUser.role === "farmer" ? "crop_sale" : "product_purchase";
+      
+      orders = await Order.find({ 
+        sellerId: req.userId.toString(),
+        orderType: orderTypeFilter
+      }).sort({ createdAt: -1 });
+      
+      console.log(`📦 Found ${currentUser.role} orders (${orderTypeFilter}):`, orders.length);
+    } else {
+      // Other roles get empty array
+      orders = [];
+      console.log("📦 No orders for this role");
+    }
+
+    // Manually populate item details based on itemType
+    const populatedOrders = await Promise.all(
+      orders.map(async (order) => {
+        const orderObj = order.toObject();
+        
+        try {
+          // Populate item details
+          if (order.itemType === "crop") {
+            const Crop = require("../models/Crop");
+            const crop = await Crop.findById(order.itemId);
+            orderObj.itemId = crop;
+          } else if (order.itemType === "product" || order.itemType === "seed" || order.itemType === "pesticide") {
+            const Product = require("../models/Product");
+            const product = await Product.findById(order.itemId);
+            orderObj.itemId = product;
+          }
+
+          // Populate buyer details for sellers/farmers
+          if (order.buyerId) {
+            const buyer = await User.findById(order.buyerId).select('name email phone');
+            orderObj.buyerId = buyer;
+          }
+
+          // Populate seller details for buyers
+          if (order.sellerId && currentUser.role === "buyer") {
+            const seller = await User.findById(order.sellerId).select('name email phone');
+            orderObj.sellerId = seller;
+          }
+
+          // Populate delivery information
+          const Delivery = require("../models/Delivery");
+          const delivery = await Delivery.findOne({ orderId: order._id })
+            .populate('partnerId');
+          orderObj.delivery = delivery;
+        } catch (err) {
+          console.log("Could not populate order details:", err.message);
+          // Keep fields as is if population fails
+        }
+        
+        return orderObj;
+      })
+    );
+    
+    console.log("✅ Returning seller/farmer orders:", populatedOrders.length);
+    res.send(populatedOrders);
+  } catch (error) {
+    console.error("Get seller/farmer orders error:", error);
+    res.status(500).json({
+      error: "Failed to fetch orders",
+      message: error.message || "Failed to retrieve orders"
+    });
+  }
+});
+
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    console.log("🔍 Fetching orders for user:", req.userId);
+    
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get current user to determine role
+    const User = require("../models/User");
+    const currentUser = await User.findById(req.userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        error: "User not found",
+        message: "User not found"
+      });
+    }
+
+    console.log("👤 User role:", currentUser.role);
+    console.log("👤 User ID:", currentUser._id);
+
     let orders = [];
     
     // Get orders based on user role
     if (currentUser.role === "buyer") {
       // Buyers see their orders
-      orders = await Order.find({ buyerId: req.userId })
+      console.log("🔍 Querying orders for buyerId:", req.userId);
+      console.log("🔍 User ID type:", typeof req.userId, req.userId);
+      
+      orders = await Order.find({ buyerId: req.userId.toString() })
         .sort({ createdAt: -1 });
+      
+      console.log("📦 Raw buyer orders found:", orders.length);
+      console.log("📋 Sample order buyerId:", orders[0]?.buyerId, "Type:", typeof orders[0]?.buyerId);
+      
+      // Also test if there are any orders at all
+      const allOrders = await Order.find({});
+      console.log("🌍 Total orders in database:", allOrders.length);
+      
+      // Test if user ID matches any order
+      const userOrders = allOrders.filter(order => {
+        console.log("Comparing:", order.buyerId?.toString(), "with:", req.userId?.toString());
+        return order.buyerId?.toString() === req.userId?.toString();
+      });
+      console.log("🎯 User orders by string comparison:", userOrders.length);
+      
     } else if (currentUser.role === "seller") {
       // Sellers see orders for their products
-      orders = await Order.find({ sellerId: req.userId })
+      console.log("🔍 Querying orders for sellerId:", req.userId);
+      orders = await Order.find({ sellerId: req.userId.toString() })
         .sort({ createdAt: -1 });
+      console.log("📦 Found seller orders:", orders.length);
     } else if (currentUser.role === "farmer") {
-      // Farmers see orders for their crops
-      orders = await Order.find({ sellerId: req.userId })
-        .sort({ createdAt: -1 });
+      // FARMERS CAN SEE BOTH: Their crop sales (as seller) AND their purchases (as buyer)
+      console.log("👨‍🌾 Farmer accessing orders - checking both buyer and seller roles");
+      console.log("🔍 Farmer ID:", req.userId);
+      
+      // Get orders where farmer is buyer (purchases) - only product purchases
+      const purchaseOrders = await Order.find({ 
+        buyerId: req.userId.toString(),
+        orderType: "product_purchase"
+      }).sort({ createdAt: -1 });
+      
+      console.log("🔍 Query for farmer purchase orders:");
+      console.log("  - buyerId:", req.userId.toString());
+      console.log("  - orderType: product_purchase");
+      console.log("🛒 Farmer purchase orders found:", purchaseOrders.length);
+      
+      // Debug: Show all orders for this farmer
+      const allFarmerOrders = await Order.find({ 
+        buyerId: req.userId.toString() 
+      }).sort({ createdAt: -1 });
+      console.log("📊 All farmer orders (any type):", allFarmerOrders.length);
+      allFarmerOrders.forEach(order => {
+        console.log(`  - Order ${order._id}: type=${order.orderType}, buyer=${order.buyerId}`);
+      });
+      
+      // Get orders where farmer is seller (crop sales) - only crop sales
+      const salesOrders = await Order.find({ 
+        sellerId: req.userId.toString(),
+        orderType: "crop_sale"
+      }).sort({ createdAt: -1 });
+      
+      console.log("🛒 Farmer purchase orders found:", purchaseOrders.length);
+      console.log("🌾 Farmer sales orders found:", salesOrders.length);
+      
+      // For the main /orders endpoint, show purchase orders
+      orders = purchaseOrders;
+      console.log("📦 Showing purchase orders to farmer:", orders.length);
+      
     } else {
       // Admin or other roles can see all orders (optional)
       orders = await Order.find({})
         .sort({ createdAt: -1 });
+      console.log("📦 Found all orders:", orders.length);
     }
+
+    console.log("📋 Raw orders:", orders.map(o => ({ id: o._id, buyerId: o.buyerId, sellerId: o.sellerId, status: o.status })));
     
     // Manually populate item details based on itemType
     const populatedOrders = await Promise.all(
@@ -363,6 +648,7 @@ router.get("/", authMiddleware, async (req, res) => {
       })
     );
     
+    console.log("✅ Returning populated orders:", populatedOrders.length);
     res.send(populatedOrders);
   } catch (error) {
     console.error("Get orders error:", error);
