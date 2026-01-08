@@ -20,8 +20,8 @@ export default function Orders() {
         const userData = JSON.parse(user);
         setCurrentUser(userData);
         
-        // Redirect sellers/farmers to their orders page
-        if (userData.role === "seller" || userData.role === "farmer") {
+        // Only redirect sellers away from orders page (farmers can see their purchase orders)
+        if (userData.role === "seller") {
           navigate("/seller-orders");
         }
       } catch (e) {
@@ -108,18 +108,32 @@ export default function Orders() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>📦 My Orders</h1>
-        <p>Track and manage your orders</p>
+        <h1>
+          {currentUser?.role === "farmer" ? "🛒 My Purchase Orders" : "📦 My Orders"}
+        </h1>
+        <p>
+          {currentUser?.role === "farmer" 
+            ? "Track and manage your product purchases" 
+            : "Track and manage your orders"
+          }
+        </p>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {orders.length === 0 ? (
         <div className="empty-state card">
-          <div style={{ fontSize: "64px", marginBottom: "16px" }}>📦</div>
-          <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>No orders yet</h3>
+          <div style={{ fontSize: "64px", marginBottom: "16px" }}>
+            {currentUser?.role === "farmer" ? "🛒" : "📦"}
+          </div>
+          <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>
+            No {currentUser?.role === "farmer" ? "purchase orders" : "orders"} yet
+          </h3>
           <p style={{ color: "var(--text-secondary)", marginBottom: "24px" }}>
-            Start shopping to see your orders here
+            {currentUser?.role === "farmer" 
+              ? "Start buying products to see your purchase orders here" 
+              : "Start shopping to see your orders here"
+            }
           </p>
           <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
             <Link to="/crops" className="btn btn-primary">

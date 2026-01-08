@@ -122,8 +122,15 @@ export default function SellerOrders() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>📦 My Sales Orders</h1>
-        <p>Track and manage your sales orders</p>
+        <h1>
+          {currentUser?.role === "farmer" ? "🌾 My Crop Orders" : "📦 My Sales Orders"}
+        </h1>
+        <p>
+          {currentUser?.role === "farmer" 
+            ? "Track and manage your crop sales" 
+            : "Track and manage your sales orders"
+          }
+        </p>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -207,12 +214,20 @@ export default function SellerOrders() {
 
       {filteredOrders.length === 0 ? (
         <div className="empty-state card">
-          <div style={{ fontSize: "64px", marginBottom: "16px" }}>📦</div>
+          <div style={{ fontSize: "64px", marginBottom: "16px" }}>
+            {currentUser?.role === "farmer" ? "🌾" : "📦"}
+          </div>
           <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>
             No {filter === "all" ? "" : filter} orders yet
           </h3>
           <p style={{ color: "var(--text-secondary)" }}>
-            {filter === "all" ? "Start selling to see your orders here" : `No ${filter} orders found`}
+            {filter === "all" 
+              ? (currentUser?.role === "farmer" 
+                  ? "Start selling your crops to see orders here" 
+                  : "Start selling to see your orders here"
+                )
+              : `No ${filter} orders found`
+            }
           </p>
         </div>
       ) : (
@@ -337,7 +352,7 @@ export default function SellerOrders() {
                   marginBottom: "16px"
                 }}>
                   <h4 style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#1976d2" }}>
-                    🛒 Buyer Information
+                    🛒 {currentUser?.role === "farmer" ? "Customer Information" : "Buyer Information"}
                   </h4>
                   <div style={{ fontSize: "13px", color: "#666" }}>
                     <p style={{ margin: "4px 0" }}><strong>Name:</strong> {order.buyerId.name}</p>

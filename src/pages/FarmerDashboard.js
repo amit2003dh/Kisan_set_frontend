@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
+const user = JSON.parse(localStorage.getItem("user"));
 
 export default function FarmerDashboard() {
   const [stats, setStats] = useState({ crops: 0, orders: 0, revenue: 0 });
@@ -10,29 +11,61 @@ export default function FarmerDashboard() {
   const [voiceResult, setVoiceResult] = useState("");
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [cropsRes, ordersRes] = await Promise.all([
-          API.get("/crops").catch(() => ({ data: [] })),
-          API.get("/orders").catch(() => ({ data: [] }))
-        ]);
-        
-        const crops = cropsRes.data || [];
-        const orders = ordersRes.data || [];
-        
-        setStats({
-          crops: crops.length,
-          orders: orders.length,
-          revenue: orders.reduce((sum, o) => sum + (o.total || 0), 0)
-        });
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+  const fetchStats = async () => {
+    try {
+      const [myCropsRes, myOrdersRes] = await Promise.all([
+        // Crops listed by this farmer (seller role)
+        API.get("/crops").catch(() => ({ data: [] })),
+
+        // Orders where this farmer is either buyer OR seller
+        API.get("/orders").catch(() => ({ data: [] }))
+      ]);
+
+      const myCrops = myCropsRes.data || [];
+      const allOrders = myOrdersRes.data || [];
+
+      console.log("📊 Farmer Dashboard Debug");
+      console.log("My Crops:", myCrops.length);
+      console.log("Total Related Orders:", allOrders.length);
+console.log("Logged in user:", user);
+      // 🧠 SEPARATION BASED ON orderType + ROLE
+      const sellerOrders = allOrders.filter(
+        (order) =>
+          order.orderType === "crop_sale" &&
+          order.sellerId === user._id
+      );
+
+      const buyerOrders = allOrders.filter(
+        (order) =>
+          order.orderType === "product_purchase" &&
+          order.buyerId === user._id
+      );
+
+      console.log("🧾 Seller Orders (Crop Sales):", sellerOrders.length);
+      console.log("🛒 Buyer Orders (Purchases):", buyerOrders.length);
+
+      // 💰 Revenue ONLY from crop sales
+      const cropRevenue = sellerOrders.reduce(
+        (sum, order) => sum + (order.total || 0),
+        0
+      );
+
+      setStats({
+        crops: myCrops.length,              // crops listed
+        orders: sellerOrders.length,         // crop sales count
+        revenue: cropRevenue,                // earnings from sales
+        purchaseOrders: buyerOrders.length   // items bought
+      });
+
+    } catch (error) {
+      console.error("❌ Error fetching farmer stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchStats();
+}, []);
 
   const startVoice = () => {
     // Check for speech recognition support
@@ -236,7 +269,8 @@ Example responses:
   const quickActions = [
     { path: "/manage-crops", label: "Manage Crops", icon: "🌾", color: "#2e7d32" },
     { path: "/add-crop", label: "Add New Crop", icon: "➕", color: "#388e3c" },
-    { path: "/seller-orders", label: "My Crop Orders", icon: "📦", color: "#1976d2" },
+    { path: "/seller-orders", label: "My Crop Sales", icon: "🌾", color: "#1976d2" },
+    { path: "/orders", label: "My Purchase Orders", icon: "🛒", color: "#f57c00" },
     { path: "/products", label: "Buy Products", icon: "🛒", color: "#f57c00" },
     { path: "/cart", label: "My Cart", icon: "🛍️", color: "#7b1fa2" },
     { path: "/crop-doctor", label: "Crop Doctor", icon: "👨‍⚕️", color: "#d32f2f" },
@@ -251,16 +285,21 @@ Example responses:
             <h1>👨‍🌾 Farmer Dashboard</h1>
             <p>Manage your crops, orders, and grow your business</p>
           </div>
-          <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
-            📦 View Orders
-          </Link>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+              🌾 Crop Sales
+            </Link>
+            <Link to="/orders" className="btn btn-secondary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+              🛒 My Purchases
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-3" style={{ marginBottom: "40px" }}>
+      <div className="grid grid-4" style={{ marginBottom: "40px" }}>
         <div className="card" style={{ 
-          background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
+          background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
           border: "none"
         }}>
@@ -268,9 +307,8 @@ Example responses:
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.crops}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Active Crops</div>
+          <div style={{ fontSize: "14px", opacity: 0.9 }}>My Crops</div>
         </div>
-
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
@@ -280,9 +318,8 @@ Example responses:
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.orders}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Orders</div>
+          <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Sales</div>
         </div>
-
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #ffc107 0%, #f57c00 100%)",
           color: "white",
@@ -292,7 +329,18 @@ Example responses:
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : `₹${stats.revenue.toLocaleString()}`}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Revenue</div>
+          <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Revenue</div>
+        </div>
+        <div className="card" style={{ 
+          background: "linear-gradient(135deg, #2196f3 0%, #1976d2 100%)",
+          color: "white",
+          border: "none"
+        }}>
+          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🛒</div>
+          <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
+            {loading ? "..." : stats.purchaseOrders || 0}
+          </div>
+          <div style={{ fontSize: "14px", opacity: 0.9 }}>Purchase Orders</div>
         </div>
       </div>
 
