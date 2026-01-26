@@ -28,27 +28,29 @@ export default function CropList() {
     setLoading(true);
     setError("");
     
-    // If user is a farmer, only show their crops
-    // If user is a buyer or no user, show all crops
-    let url = "/crops";
-    const user = localStorage.getItem("user");
-    if (user) {
-      try {
-        const userData = JSON.parse(user);
-        if (userData.role === "farmer" && userData._id) {
-          url = `/crops?farmerId=${userData._id}`;
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
-    
-    const { data, error: err } = await apiCall(() => API.get(url));
+    // Get all crops first
+    const { data, error: err } = await apiCall(() => API.get("/crops"));
     
     if (err) {
       setError(err);
     } else {
-      setCrops(data || []);
+      // Filter out current farmer's own crops
+      let filteredCrops = data || [];
+      const user = localStorage.getItem("user");
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          if (userData.role === "farmer" && userData._id) {
+            // Filter out crops belonging to the current farmer
+            filteredCrops = filteredCrops.filter(crop => 
+              !crop.sellerId || crop.sellerId.toString() !== userData._id
+            );
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      setCrops(filteredCrops);
     }
     
     setLoading(false);
@@ -71,8 +73,13 @@ export default function CropList() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>🌾 Available Crops</h1>
-        <p>Browse and purchase fresh crops directly from farmers</p>
+        <h1>🌾 Crop Marketplace</h1>
+        <p>Browse and purchase fresh crops from other farmers</p>
+        {currentUser?.role === "farmer" && (
+          <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
+            💡 Your own crops are managed in <Link to="/manage-crops" style={{ color: "var(--primary-green)" }}>Manage Crops</Link>
+          </p>
+        )}
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -81,7 +88,18 @@ export default function CropList() {
         <div className="empty-state card">
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>🌾</div>
           <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>No crops available</h3>
-          <p style={{ color: "var(--text-secondary)" }}>Check back later for fresh crops</p>
+          <p style={{ color: "var(--text-secondary)" }}>Check back later for fresh crops from farmers</p>
+          {currentUser?.role === "farmer" && (
+            <div style={{ marginTop: "16px" }}>
+              <Link to="/add-crop" className="btn btn-primary">
+                🌾 Add Your Crops
+              </Link>
+              <span style={{ margin: "0 8px", color: "var(--text-muted)" }}>or</span>
+              <Link to="/manage-crops" className="btn btn-outline">
+                📋 Manage Your Crops
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-3">
@@ -182,49 +200,19 @@ export default function CropList() {
                     ₹{crop.price || 0}
                   </div>
                 </div>
-                {currentUser && crop.farmerId && currentUser._id === crop.farmerId.toString() ? (
-                  <span style={{
-                    padding: "10px 20px",
+                <button
+                  onClick={() => addToCart({ ...crop, type: "crop" })}
+                  className="btn btn-primary"
+                  disabled={crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0}
+                  style={{ 
+                    padding: "10px 20px", 
                     fontSize: "14px",
-                    color: "var(--text-secondary)",
-                    fontStyle: "italic"
-                  }}>
-                    Your Crop
-                  </span>
-                ) : currentUser && currentUser.role === "buyer" ? (
-                  <button
-                    onClick={() => addToCart({ ...crop, type: "crop" })}
-                    className="btn btn-primary"
-                    disabled={crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0}
-                    style={{ 
-                      padding: "10px 20px", 
-                      fontSize: "14px",
-                      opacity: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? 0.6 : 1,
-                      cursor: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    {(crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "Out of Stock" : "Add to Cart"}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      addToCart({ ...crop, type: "crop" });
-                      // Optionally show a success message or navigate to cart
-                      // You can uncomment the line below if you want to navigate to cart after adding
-                      // navigate("/cart");
-                    }}
-                    className="btn btn-primary"
-                    disabled={crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0}
-                    style={{ 
-                      padding: "10px 20px", 
-                      fontSize: "14px",
-                      opacity: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? 0.6 : 1,
-                      cursor: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    {(crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "Out of Stock" : "Add to Cart"}
-                  </button>
-                )}
+                    opacity: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? 0.6 : 1,
+                    cursor: (crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {(crop.quantity === undefined || crop.quantity === null || crop.quantity <= 0) ? "Out of Stock" : "Add to Cart"}
+                </button>
               </div>
             </div>
           ))}

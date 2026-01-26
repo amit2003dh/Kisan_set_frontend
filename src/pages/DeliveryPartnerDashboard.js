@@ -22,7 +22,7 @@ export default function DeliveryPartnerDashboard() {
     setError("");
     
     const { data, error: err } = await apiCall(() =>
-      API.get("/delivery-partner/my-orders")
+      API.get("/orders/delivery/my-orders")
     );
     
     if (err) {
@@ -226,7 +226,7 @@ export default function DeliveryPartnerDashboard() {
             📦 View All Orders
           </Link>
           <Link
-            to="/delivery-partner/profile"
+            to="/profile"
             className="btn btn-outline"
             style={{ fontSize: "14px", padding: "10px 20px" }}
           >

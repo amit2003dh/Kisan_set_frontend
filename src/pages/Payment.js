@@ -18,10 +18,12 @@ export default function Payment() {
   const [address, setAddress] = useState({
     name: "",
     phone: "",
-    addressLine: "",
+    address: "", // Changed from addressLine to address to match schema
     city: "",
     state: "",
-    pincode: ""
+    pincode: "",
+    lat: 20.5937, // Default India center latitude
+    lng: 78.9629  // Default India center longitude
   });
 
   useEffect(() => {
@@ -59,10 +61,12 @@ export default function Payment() {
     return (
       address.name &&
       address.phone &&
-      address.addressLine &&
+      address.address && // Updated from addressLine to address
       address.city &&
       address.state &&
-      address.pincode
+      address.pincode &&
+      address.lat !== undefined && // Check lat is provided
+      address.lng !== undefined    // Check lng is provided
     );
   };
 
@@ -93,35 +97,69 @@ export default function Payment() {
         return;
       }
 
+      console.log("🛒 PLACING COD ORDER");
+      console.log("🔍 User:", user);
+      console.log("🔍 Buyer ID:", buyerId);
+      console.log("🔍 Payment Details:", paymentDetails);
+      console.log("🔍 Address:", address);
+      console.log("🔍 From Cart:", fromCart);
+      console.log("🔍 Amount:", amount);
+
       if (fromCart) {
+        console.log("🛒 Creating cart order with data:", {
+          items: paymentDetails.items,
+          buyerId,
+          paymentMethod: "COD",
+          deliveryAddress: address
+        });
+        
         await apiCall(() =>
           API.post("/orders/create-from-cart", {
             items: paymentDetails.items,
             buyerId,
             paymentMethod: "COD",
-            address
+            deliveryAddress: address
           })
         );
         clearCart();
       } else {
+        const itemId = paymentDetails.cropId || paymentDetails.productId;
+        console.log("🔍 Extracted itemId:", itemId);
+        console.log("🔍 paymentDetails.cropId:", paymentDetails.cropId);
+        console.log("🔍 paymentDetails.productId:", paymentDetails.productId);
+        
+        console.log("🛒 Creating single order with data:", {
+          buyerId,
+          itemId: itemId,
+          itemType: paymentDetails.itemType,
+          quantity: 1,
+          price: amount,
+          total: amount,
+          status: "Confirmed",
+          paymentMethod: "COD",
+          deliveryAddress: address
+        });
+        
         await apiCall(() =>
           API.post("/orders/create", {
             buyerId,
-            itemId: paymentDetails.cropId || paymentDetails.productId,
+            itemId: itemId,
             itemType: paymentDetails.itemType,
             quantity: 1,
             price: amount,
             total: amount,
             status: "Confirmed",
             paymentMethod: "COD",
-            address
+            deliveryAddress: address
           })
         );
       }
 
+      console.log("✅ Order placed successfully!");
       alert("Order placed successfully 🚚 Cash on Delivery");
       navigate("/orders");
     } catch (err) {
+      console.error("❌ Order placement error:", err);
       setError("Failed to place COD order");
     } finally {
       setLoading(false);
@@ -180,7 +218,7 @@ export default function Payment() {
                 buyerId: user._id,
                 paymentMethod: "ONLINE",
                 paymentId: response.razorpay_payment_id,
-                address
+                deliveryAddress: address  // Fixed: changed from address to deliveryAddress
               })
             );
             clearCart();
@@ -196,7 +234,7 @@ export default function Payment() {
                 status: "Confirmed",
                 paymentMethod: "ONLINE",
                 paymentId: response.razorpay_payment_id,
-                address
+                deliveryAddress: address  // Fixed: changed from address to deliveryAddress
               })
             );
           }
@@ -315,7 +353,7 @@ export default function Payment() {
       <h2>₹ {amount.toLocaleString("en-IN")}</h2>
 
       <h3>Delivery Address</h3>
-      {["name","phone","addressLine","city","state","pincode"].map((f) => (
+      {["name","phone","address","city","state","pincode"].map((f) => (
         <input
           key={f}
           name={f}
@@ -324,6 +362,20 @@ export default function Payment() {
           style={{ width: "100%", marginBottom: "8px" }}
         />
       ))}
+      
+      {/* Hidden coordinates - using default India coordinates */}
+      <input
+        type="hidden"
+        name="lat"
+        value={20.5937} // Default India center latitude
+        onChange={handleAddressChange}
+      />
+      <input
+        type="hidden"
+        name="lng"
+        value={78.9629} // Default India center longitude
+        onChange={handleAddressChange}
+      />
 
       <h3>Payment Method</h3>
       <div style={{ marginBottom: "16px", padding: "12px", background: "#f5f5f5", borderRadius: "8px" }}>

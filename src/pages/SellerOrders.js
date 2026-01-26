@@ -32,7 +32,7 @@ export default function SellerOrders() {
     setLoading(true);
     setError("");
     
-    const { data, error: err } = await apiCall(() => API.get("/orders"));
+    const { data, error: err } = await apiCall(() => API.get("/orders/seller"));
     
     if (err) {
       setError(err);
@@ -96,6 +96,11 @@ export default function SellerOrders() {
   };
 
   const getItemName = (order) => {
+    // Use new items array structure
+    if (order.items && order.items.length > 0) {
+      return order.items[0].name || "Product Item";
+    }
+    // Fallback for old structure
     if (order.itemId?.name) {
       return order.itemId.name;
     }
@@ -103,6 +108,18 @@ export default function SellerOrders() {
   };
 
   const getItemImage = (order) => {
+    // Use new items array structure
+    if (order.items && order.items.length > 0 && order.itemDetails) {
+      if (order.itemDetails.images && order.itemDetails.images.length > 0) {
+        const imageUrl = order.itemDetails.images[0];
+        return imageUrl.startsWith("http") ? imageUrl : `${process.env.REACT_APP_API_URL || "http://localhost:5000"}${imageUrl}`;
+      }
+      if (order.itemDetails.image) {
+        const imageUrl = order.itemDetails.image;
+        return imageUrl.startsWith("http") ? imageUrl : `${process.env.REACT_APP_API_URL || "http://localhost:5000"}${imageUrl}`;
+      }
+    }
+    // Fallback for old structure
     if (order.itemId?.image) {
       const imageUrl = order.itemId.image;
       return imageUrl.startsWith("http") ? imageUrl : `${process.env.REACT_APP_API_URL || "http://localhost:5000"}${imageUrl}`;
@@ -253,9 +270,9 @@ export default function SellerOrders() {
                         border: "1px solid var(--border-color)"
                       }}
                       onError={(e) => {
-                        const icon = order.itemType === "crop" ? "🌾" : 
-                                    order.itemType === "seed" ? "🌱" : 
-                                    order.itemType === "pesticide" ? "🧪" : "🛒";
+                        const icon = order.items?.[0]?.itemType === "crop" ? "🌾" : 
+                                    order.items?.[0]?.itemType === "seed" ? "🌱" : 
+                                    order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
                         e.target.style.display = "none";
                         const parent = e.target.parentElement;
                         const fallback = document.createElement("div");
@@ -277,9 +294,9 @@ export default function SellerOrders() {
                       border: "1px solid var(--border-color)",
                       fontSize: "24px"
                     }}>
-                      {order.itemType === "crop" ? "🌾" : 
-                       order.itemType === "seed" ? "🌱" : 
-                       order.itemType === "pesticide" ? "🧪" : "🛒"}
+                      {order.items?.[0]?.itemType === "crop" ? "🌾" : 
+                       order.items?.[0]?.itemType === "seed" ? "🌱" : 
+                       order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒"}
                     </div>
                   )}
                   <div>
@@ -304,7 +321,10 @@ export default function SellerOrders() {
                       color: "var(--text-secondary)",
                       fontSize: "14px"
                     }}>
-                      {order.itemType === "crop" ? "🌾 Crop" : order.itemType === "seed" ? "🌱 Seed" : order.itemType === "pesticide" ? "🧪 Pesticide" : "🛒 Product"}
+                      {order.items?.[0]?.itemType === "crop" ? "🌾 Crop" : 
+                       order.items?.[0]?.itemType === "seed" ? "🌱 Seed" : 
+                       order.items?.[0]?.itemType === "pesticide" ? "🧪 Pesticide" : 
+                       "🛒 Product"}
                     </p>
                   </div>
                 </div>
@@ -376,11 +396,11 @@ export default function SellerOrders() {
                 }}>
                   <div>
                     <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Quantity:</span>
-                    <strong style={{ color: "var(--text-primary)" }}>{order.quantity || 1}</strong>
+                    <strong style={{ color: "var(--text-primary)" }}>{order.items?.[0]?.quantity || order.quantity || 1}</strong>
                   </div>
                   <div>
                     <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Price:</span>
-                    <strong style={{ color: "var(--text-primary)" }}>₹{order.price || 0}</strong>
+                    <strong style={{ color: "var(--text-primary)" }}>₹{order.items?.[0]?.price || order.price || 0}</strong>
                   </div>
                   <div>
                     <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Total:</span>

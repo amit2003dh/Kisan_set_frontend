@@ -29,7 +29,7 @@ export default function ProductStore() {
     setError("");
     
     const { data, error: err } = await apiCall(() => API.get("/products"));
-    
+    console.log("Fetched products:", data);
     if (err) {
       setError(err);
     } else {
@@ -122,7 +122,7 @@ export default function ProductStore() {
           🧪 Pesticides
         </button>
       </div>
-
+{console.log("Filtered products:", filteredProducts)}
       {filteredProducts.length === 0 ? (
         <div className="empty-state card">
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>🛒</div>

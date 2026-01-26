@@ -22,6 +22,8 @@ import Payment from "./pages/Payment";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Cart from "./pages/Cart";
 import Profile from "./pages/Profile";
+import RevenueDetails from "./pages/RevenueDetails";
+import CropSalesDetails from "./pages/CropSalesDetails";
 
 function AppContent() {
   const location = useLocation();
@@ -52,6 +54,8 @@ function AppContent() {
         <Route path="/crop-doctor" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><CropDoctor /></ProtectedRoute>} />
         <Route path="/payment" element={<ProtectedRoute excludeRoles={["delivery_partner", "seller"]}><Payment /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/revenue-details" element={<ProtectedRoute requiredRole={["farmer", "seller"]}><RevenueDetails /></ProtectedRoute>} />
+        <Route path="/crop-sales/:cropId" element={<ProtectedRoute requiredRole={["farmer", "seller"]}><CropSalesDetails /></ProtectedRoute>} />
       </Routes>
     </>
   );

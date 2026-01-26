@@ -1,48 +1,81 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
 const user = JSON.parse(localStorage.getItem("user"));
 
 export default function FarmerDashboard() {
-  const [stats, setStats] = useState({ crops: 0, orders: 0, revenue: 0 });
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({ crops: 0, orders: 0, revenue: 0, products: 0 });
   const [loading, setLoading] = useState(true);
   const [listening, setListening] = useState(false);
   const [voiceResult, setVoiceResult] = useState("");
+  const [recentProducts, setRecentProducts] = useState([]);
 
   useEffect(() => {
   const fetchStats = async () => {
     try {
-      const [myCropsRes, myOrdersRes] = await Promise.all([
+      const [myCropsRes, myOrdersRes, productsRes] = await Promise.all([
         // Crops listed by this farmer (seller role)
         API.get("/crops").catch(() => ({ data: [] })),
 
         // Orders where this farmer is either buyer OR seller
-        API.get("/orders").catch(() => ({ data: [] }))
+        API.get("/orders/farmer").catch(() => ({ data: { sales: [], purchases: [] } })),
+        
+        // Available products for farmers to buy
+        API.get("/products").catch((err) => {
+          console.error("❌ Products API error:", err);
+          return { data: [] };
+        })
       ]);
 
-      const myCrops = myCropsRes.data || [];
-      const allOrders = myOrdersRes.data || [];
+      const myCrops = myCropsRes.data.filter(
+        (crop) => crop.sellerId === user._id
+      );
+      const othersCrops=myCropsRes.data.filter(
+        (crop) => crop.sellerId !== user._id
+      );
+      console.log("Others Crops:", othersCrops);
+      console.log("My Crops:", myCrops);
+      
+      // Get orders from the farmer endpoint response
+      const sales = myOrdersRes.data.sales || [];
+      const purchases = myOrdersRes.data.purchases || [];
+      const allOrders = [...sales, ...purchases];
+
+      // Get available products
+      const availableProducts = productsRes.data || [];
+      console.log("📦 Products API Response:", productsRes);
+      console.log("📦 Available Products:", availableProducts);
+      console.log("📦 Products count:", availableProducts.length);
 
       console.log("📊 Farmer Dashboard Debug");
       console.log("My Crops:", myCrops.length);
+      console.log("Sales (Crop Sales):", sales.length);
+      console.log("Purchases (All Types):", purchases.length);
+      console.log("Purchases - Crop Purchases:", purchases.filter(o => o.orderType === "crop_purchase").length);
+      console.log("Purchases - Product Purchases:", purchases.filter(o => o.orderType === "product_purchase").length);
+      console.log("Available Products:", availableProducts.length);
       console.log("Total Related Orders:", allOrders.length);
 console.log("Logged in user:", user);
+      
       // 🧠 SEPARATION BASED ON orderType + ROLE
-      const sellerOrders = allOrders.filter(
+      const sellerOrders = sales.filter(
         (order) =>
           order.orderType === "crop_sale" &&
           order.sellerId === user._id
       );
 
-      const buyerOrders = allOrders.filter(
+      const buyerOrders = purchases.filter(
         (order) =>
-          order.orderType === "product_purchase" &&
+          (order.orderType === "product_purchase" || order.orderType === "crop_purchase") &&
           order.buyerId === user._id
       );
 
       console.log("🧾 Seller Orders (Crop Sales):", sellerOrders.length);
-      console.log("🛒 Buyer Orders (Purchases):", buyerOrders.length);
+      console.log("🛒 Buyer Orders (All Purchases):", buyerOrders.length);
+      console.log("🛒 Buyer Orders - Crop Purchases:", purchases.filter(o => o.orderType === "crop_purchase" && o.buyerId === user._id).length);
+      console.log("🛒 Buyer Orders - Product Purchases:", purchases.filter(o => o.orderType === "product_purchase" && o.buyerId === user._id).length);
 
       // 💰 Revenue ONLY from crop sales
       const cropRevenue = sellerOrders.reduce(
@@ -54,8 +87,12 @@ console.log("Logged in user:", user);
         crops: myCrops.length,              // crops listed
         orders: sellerOrders.length,         // crop sales count
         revenue: cropRevenue,                // earnings from sales
-        purchaseOrders: buyerOrders.length   // items bought
+        purchaseOrders: buyerOrders.length,   // items bought
+        products: availableProducts.length   // available products
       });
+
+      // Store recent products for display
+      setRecentProducts(availableProducts.slice(0, 4)); // Show only 4 recent products
 
     } catch (error) {
       console.error("❌ Error fetching farmer stats:", error);
@@ -302,7 +339,9 @@ Example responses:
           background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
           border: "none"
-        }}>
+        }}
+        onClick={() => navigate("/manage-crops")}
+        >
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🌾</div>
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.crops}
@@ -313,7 +352,9 @@ Example responses:
           background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
           border: "none"
-        }}>
+        }}
+        onClick={() => navigate("/seller-orders")}
+        >
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>📦</div>
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.orders}
@@ -321,9 +362,22 @@ Example responses:
           <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Sales</div>
         </div>
         <div className="card" style={{ 
-          background: "linear-gradient(135deg, #ffc107 0%, #f57c00 100%)",
-          color: "white",
-          border: "none"
+          background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)", 
+          color: "white", 
+          padding: "24px", 
+          borderRadius: "12px", 
+          textAlign: "center",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onClick={() => navigate("/revenue-details")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(46, 125, 50, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>💰</div>
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
@@ -332,9 +386,22 @@ Example responses:
           <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Revenue</div>
         </div>
         <div className="card" style={{ 
-          background: "linear-gradient(135deg, #2196f3 0%, #1976d2 100%)",
-          color: "white",
-          border: "none"
+          background: "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)", 
+          color: "white", 
+          padding: "24px", 
+          borderRadius: "12px", 
+          textAlign: "center",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onClick={() => navigate("/orders")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(245, 124, 0, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
         }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🛒</div>
           <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
@@ -342,6 +409,80 @@ Example responses:
           </div>
           <div style={{ fontSize: "14px", opacity: 0.9 }}>Purchase Orders</div>
         </div>
+      </div>
+
+      {/* Products Section */}
+      <div className="card" style={{ marginBottom: "40px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "20px", color: "#2e7d32" }}>🛒 Available Products</h3>
+            <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Browse products for your farming needs</p>
+          </div>
+          <Link to="/products" className="btn btn-primary" style={{ fontSize: "14px", padding: "8px 16px" }}>
+            View All Products
+          </Link>
+        </div>
+        
+        {recentProducts.length > 0 ? (
+          <div className="grid grid-4" style={{ gap: "16px" }}>
+            {recentProducts.map((product) => (
+              <div key={product._id} className="card" style={{ 
+                padding: "16px", 
+                textAlign: "center",
+                border: "1px solid #e0e0e0",
+                transition: "transform 0.2s, box-shadow 0.2s"
+              }}>
+                {product.image && (
+                  <img 
+                    src={product.image} 
+                    alt={product.name}
+                    style={{ 
+                      width: "100%", 
+                      height: "120px", 
+                      objectFit: "cover", 
+                      borderRadius: "8px",
+                      marginBottom: "12px"
+                    }}
+                  />
+                )}
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "16px", color: "#333" }}>
+                  {product.name}
+                </h4>
+                <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#666" }}>
+                  {product.type}
+                </p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <span style={{ fontSize: "18px", fontWeight: "bold", color: "#2e7d32" }}>
+                    ₹{product.price}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#666" }}>
+                    Stock: {product.stock}
+                  </span>
+                </div>
+                <Link 
+                  to={`/products/${product._id}`} 
+                  className="btn btn-primary" 
+                  style={{ 
+                    fontSize: "12px", 
+                    padding: "6px 12px", 
+                    width: "100%",
+                    textDecoration: "none"
+                  }}
+                >
+                  View Details
+                </Link>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px 20px", color: "#666" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📦</div>
+            <h4 style={{ margin: "0 0 8px 0", color: "#333" }}>No Products Available</h4>
+            <p style={{ margin: 0, fontSize: "14px" }}>
+              Check back later for new farming products and supplies
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Voice Assistant */}

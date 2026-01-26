@@ -45,7 +45,7 @@ export default function BuyerDashboard() {
     setError("");
     
     const { data, error: err } = await apiCall(() =>
-      API.get("/orders")
+      API.get("/orders/buyer")
     );
     
     if (err) {
