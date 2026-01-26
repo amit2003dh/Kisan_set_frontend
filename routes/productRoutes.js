@@ -1,4 +1,3 @@
-// Product Routes
 const router = require("express").Router();
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
@@ -7,7 +6,8 @@ const path = require("path");
 const fs = require("fs");
 const authMiddleware = require("../middleware/auth");
 
-// Configure multer for image upload
+/* -------------------- MULTER CONFIG -------------------- */
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = "uploads/products";
@@ -17,374 +17,199 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
-    cb(null, "product-" + uniqueSuffix + path.extname(file.originalname));
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `product-${unique}${path.extname(file.originalname)}`);
   }
 });
 
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error("Only image files are allowed (jpeg, jpg, png, gif, webp)"));
+    const allowed = /jpeg|jpg|png|webp/;
+    if (allowed.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files allowed"));
   }
 });
+
+/* -------------------- ADD PRODUCT -------------------- */
 
 router.post("/add", authMiddleware, upload.single("image"), async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
+      return res.status(503).json({ error: "DB not connected" });
     }
 
     const productData = {
-      ...req.body,
-      sellerId: req.userId
+      sellerId: req.userId,
+      name: req.body.name,
+      type: req.body.type,
+      price: Number(req.body.price),
+      stock: Number(req.body.stock),
+      description: req.body.description,
+      status: Number(req.body.stock) > 0 ? "Available" : "Out of Stock",
+      verified: false,
+
+      location: req.body.location ? JSON.parse(req.body.location) : undefined,
+      contactInfo: req.body.contactInfo
+        ? JSON.parse(req.body.contactInfo)
+        : undefined
     };
 
-    // Add image path if uploaded
     if (req.file) {
       productData.image = `/uploads/products/${req.file.filename}`;
     }
 
-    // Parse price and stock as numbers
-    if (productData.price) productData.price = parseFloat(productData.price);
-    if (productData.stock) productData.stock = parseInt(productData.stock);
-
     const product = new Product(productData);
     await product.save();
-    res.send(product);
-  } catch (error) {
-    console.error("Add product error:", error);
-    // Delete uploaded file if error occurred
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({
-      error: "Failed to add product",
-      message: error.message || "Failed to save product"
-    });
+
+    res.json(product);
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: err.message });
   }
 });
+
+/* -------------------- GET PRODUCTS -------------------- */
+/* Buyer → verified products | Seller → own products */
 
 router.get("/", async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
+    console.log("🔍 GET PRODUCTS - Fetching products");
+    console.log("🔍 Query params:", req.query);
+    
+    const query = req.query.sellerId
+      ? { sellerId: req.query.sellerId }
+      : { status: "Available" };
 
-    // If sellerId query param is provided, filter by seller (for sellers to see their products)
-    // Otherwise, show all verified products (for buyers)
-    const sellerId = req.query.sellerId;
-    const query = sellerId ? { sellerId } : { verified: true };
+    console.log("🔍 Database query:", query);
     
     const products = await Product.find(query).sort({ createdAt: -1 });
-    res.send(products);
+    
+    console.log("✅ Products found:", products.length);
+    console.log("📦 Product list:", products.map(p => ({ 
+      id: p._id, 
+      name: p.name, 
+      type: p.type, 
+      price: p.price,
+      status: p.status 
+    })));
+    
+    res.json(products);
   } catch (error) {
-    console.error("Get products error:", error);
-    res.status(500).json({
-      error: "Failed to fetch products",
-      message: error.message || "Failed to retrieve products"
-    });
+    console.error("❌ Get products error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Get products for current seller
+/* -------------------- MY PRODUCTS -------------------- */
+
 router.get("/my-products", authMiddleware, async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
-
-    const products = await Product.find({ sellerId: req.userId })
-      .sort({ createdAt: -1 });
-    
-    res.send(products);
-  } catch (error) {
-    console.error("Get my products error:", error);
-    res.status(500).json({
-      error: "Failed to fetch your products",
-      message: error.message || "Failed to retrieve your products"
-    });
-  }
+  const products = await Product.find({ sellerId: req.userId })
+    .sort({ createdAt: -1 });
+  res.json(products);
 });
 
-// Update product
+/* -------------------- UPDATE PRODUCT -------------------- */
+
 router.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
+  const product = await Product.findOne({
+    _id: req.params.id,
+    sellerId: req.userId
+  });
 
-    const product = await Product.findOne({ _id: req.params.id, sellerId: req.userId });
-    
-    if (!product) {
-      return res.status(404).json({
-        error: "Product not found",
-        message: "Product not found or you don't have permission to edit it"
-      });
-    }
-
-    const updateData = { ...req.body };
-    
-    // Add image path if uploaded
-    if (req.file) {
-      // Delete old image if exists
-      if (product.image && fs.existsSync(product.image.replace('/uploads/', 'uploads/'))) {
-        fs.unlinkSync(product.image.replace('/uploads/', 'uploads/'));
-      }
-      updateData.image = `/uploads/products/${req.file.filename}`;
-    }
-
-    // Parse price and stock as numbers
-    if (updateData.price) updateData.price = parseFloat(updateData.price);
-    if (updateData.stock) updateData.stock = parseInt(updateData.stock);
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
-
-    // Add tracking event
-    const ProductTracker = require("../models/ProductTracker");
-    await ProductTracker.findOneAndUpdate(
-      { productId: req.params.id, productType: "Product", sellerId: req.userId },
-      {
-        $push: {
-          trackingEvents: {
-            eventType: "updated",
-            description: "Product information updated",
-            metadata: { 
-              oldStock: product.stock,
-              newStock: updateData.stock,
-              oldPrice: product.price,
-              newPrice: updateData.price
-            }
-          }
-        },
-        lastUpdated: new Date()
-      },
-      { upsert: true }
-    );
-
-    res.send(updatedProduct);
-  } catch (error) {
-    console.error("Update product error:", error);
-    // Delete uploaded file if error occurred
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    res.status(500).json({
-      error: "Failed to update product",
-      message: error.message || "Failed to update product"
-    });
+  if (!product) {
+    return res.status(404).json({ error: "Product not found" });
   }
+
+  const update = {
+    ...req.body,
+    price: req.body.price ? Number(req.body.price) : product.price,
+    stock: req.body.stock ? Number(req.body.stock) : product.stock,
+    status:
+      req.body.stock !== undefined
+        ? Number(req.body.stock) > 0
+          ? "Available"
+          : "Out of Stock"
+        : product.status
+  };
+
+  if (req.file) {
+    if (product.image) {
+      const old = product.image.replace("/uploads/", "uploads/");
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+    update.image = `/uploads/products/${req.file.filename}`;
+  }
+
+  if (req.body.location) update.location = JSON.parse(req.body.location);
+  if (req.body.contactInfo) update.contactInfo = JSON.parse(req.body.contactInfo);
+
+  const updated = await Product.findByIdAndUpdate(req.params.id, update, {
+    new: true
+  });
+
+  res.json(updated);
 });
 
-// Update product verification status
+/* -------------------- VERIFY / UNVERIFY PRODUCT -------------------- */
+
 router.put("/:id/status", authMiddleware, async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
+  const { verified } = req.body;
 
-    const { verified } = req.body;
-    
-    const product = await Product.findOne({ _id: req.params.id, sellerId: req.userId });
-    
-    if (!product) {
-      return res.status(404).json({
-        error: "Product not found",
-        message: "Product not found or you don't have permission to edit it"
-      });
-    }
+  const product = await Product.findOne({
+    _id: req.params.id,
+    sellerId: req.userId
+  });
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { verified },
-      { new: true }
-    );
-
-    // Add tracking event
-    const ProductTracker = require("../models/ProductTracker");
-    await ProductTracker.findOneAndUpdate(
-      { productId: req.params.id, productType: "Product", sellerId: req.userId },
-      {
-        $push: {
-          trackingEvents: {
-            eventType: "updated",
-            description: `Product verification ${verified ? "approved" : "revoked"}`,
-            metadata: { oldVerified: product.verified, newVerified: verified }
-          }
-        },
-        lastUpdated: new Date()
-      },
-      { upsert: true }
-    );
-
-    res.send(updatedProduct);
-  } catch (error) {
-    console.error("Update product status error:", error);
-    res.status(500).json({
-      error: "Failed to update product status",
-      message: error.message || "Failed to update product status"
-    });
+  if (!product) {
+    return res.status(404).json({ error: "Product not found" });
   }
+
+  product.verified = Boolean(verified);
+  await product.save();
+
+  res.json(product);
 });
 
-// Delete product
+/* -------------------- DELETE PRODUCT -------------------- */
+
 router.delete("/:id", authMiddleware, async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
+  const product = await Product.findOne({
+    _id: req.params.id,
+    sellerId: req.userId
+  });
 
-    const product = await Product.findOne({ _id: req.params.id, sellerId: req.userId });
-    
-    if (!product) {
-      return res.status(404).json({
-        error: "Product not found",
-        message: "Product not found or you don't have permission to delete it"
-      });
-    }
-
-    // Delete image if exists
-    if (product.image && fs.existsSync(product.image.replace('/uploads/', 'uploads/'))) {
-      fs.unlinkSync(product.image.replace('/uploads/', 'uploads/'));
-    }
-
-    await Product.findByIdAndDelete(req.params.id);
-
-    // Add tracking event
-    const ProductTracker = require("../models/ProductTracker");
-    await ProductTracker.findOneAndUpdate(
-      { productId: req.params.id, productType: "Product", sellerId: req.userId },
-      {
-        $push: {
-          trackingEvents: {
-            eventType: "updated",
-            description: "Product deleted",
-            metadata: { productName: product.name }
-          }
-        },
-        currentStatus: "deleted",
-        lastUpdated: new Date()
-      },
-      { upsert: true }
-    );
-
-    res.json({ success: true, message: "Product deleted successfully" });
-  } catch (error) {
-    console.error("Delete product error:", error);
-    res.status(500).json({
-      error: "Failed to delete product",
-      message: error.message || "Failed to delete product"
-    });
+  if (!product) {
+    return res.status(404).json({ error: "Product not found" });
   }
+
+  if (product.image) {
+    const img = product.image.replace("/uploads/", "uploads/");
+    if (fs.existsSync(img)) fs.unlinkSync(img);
+  }
+
+  await Product.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
 });
 
-// Decrease product stock (when order is confirmed)
-router.put("/:id/decrease-stock", authMiddleware, async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: "Database not connected",
-        message: "MongoDB is not connected. Please check your database connection."
-      });
-    }
+/* -------------------- DECREASE STOCK (ORDER) -------------------- */
 
-    const { quantity } = req.body;
-    
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({
-        error: "Invalid quantity",
-        message: "Please provide a valid quantity to decrease"
-      });
-    }
+router.put("/:id/decrease-stock", async (req, res) => {
+  const { quantity } = req.body;
 
-    const product = await Product.findById(req.params.id);
-    
-    if (!product) {
-      return res.status(404).json({
-        error: "Product not found",
-        message: "Product not found"
-      });
-    }
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ error: "Product not found" });
 
-    if (product.stock < quantity) {
-      return res.status(400).json({
-        error: "Insufficient stock",
-        message: `Only ${product.stock} units available, but ${quantity} units requested`
-      });
-    }
-
-    const newStock = product.stock - quantity;
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      { stock: newStock },
-      { new: true }
-    );
-
-    // Add tracking event
-    const ProductTracker = require("../models/ProductTracker");
-    await ProductTracker.findOneAndUpdate(
-      { productId: req.params.id, productType: "Product", sellerId: product.sellerId },
-      {
-        $inc: { 
-          totalOrders: 1,
-          totalRevenue: quantity * product.price
-        },
-        $push: {
-          trackingEvents: {
-            eventType: "ordered",
-            description: `${quantity} units ordered`,
-            metadata: { 
-              quantity,
-              price: product.price,
-              revenue: quantity * product.price,
-              remainingStock: newStock
-            }
-          }
-        },
-        currentStatus: newStock === 0 ? "out_of_stock" : "available",
-        lastUpdated: new Date()
-      },
-      { upsert: true }
-    );
-
-    res.send(updatedProduct);
-  } catch (error) {
-    console.error("Decrease stock error:", error);
-    res.status(500).json({
-      error: "Failed to decrease stock",
-      message: error.message || "Failed to decrease product stock"
-    });
+  if (product.stock < quantity) {
+    return res.status(400).json({ error: "Insufficient stock" });
   }
+
+  product.stock -= quantity;
+  product.status = product.stock === 0 ? "Out of Stock" : "Available";
+  await product.save();
+
+  res.json(product);
 });
 
 module.exports = router;

@@ -100,6 +100,31 @@ router.get("/location/:id", async (req, res) => {
     });
   }
 });
+router.get("/tracking/:deliveryId", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.deliveryId);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.json({
+      currentLocation: order.deliveryPartnerInfo?.currentLocation || {
+        lat: 22.7196,
+        lng: 75.8577,
+        status: order.status
+      },
+      destination: {
+        lat: order.deliveryInfo?.deliveryAddress?.lat,
+        lng: order.deliveryInfo?.deliveryAddress?.lng,
+        address: order.deliveryInfo?.deliveryAddress?.address
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 router.get("/tracking/:id", async (req, res) => {
   try {

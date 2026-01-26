@@ -94,8 +94,8 @@ router.post("/start", authMiddleware, async (req, res) => {
     let seller;
     if (productType === "Crop") {
       const Crop = require("../models/Crop");
-      const crop = await Crop.findById(productId).populate('farmerId');
-      seller = crop.farmerId;
+      const crop = await Crop.findById(productId).populate('sellerId');
+      seller = crop.sellerId;
     } else {
       const Product = require("../models/Product");
       const product = await Product.findById(productId).populate('sellerId');

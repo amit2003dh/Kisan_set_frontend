@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 const addressSchema = new mongoose.Schema({
+  label: String,
   address: { type: String },
   city: String,
   state: String,
@@ -21,22 +22,13 @@ const businessLocationSchema = new mongoose.Schema({
   lat: { type: Number, required: true },
   lng: { type: Number, required: true },
   landmark: String,
-  serviceRadius: { type: Number, default: 50 }, // km
-  businessHours: {
-    monday: { open: String, close: String },
-    tuesday: { open: String, close: String },
-    wednesday: { open: String, close: String },
-    thursday: { open: String, close: String },
-    friday: { open: String, close: String },
-    saturday: { open: String, close: String },
-    sunday: { open: String, close: String }
-  }
+  serviceRadius: { type: Number, default: 50 }
 });
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
-  password: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   phone: {
     type: String,
     validate: {

@@ -47,7 +47,8 @@ router.post("/add", authMiddleware, upload.single("image"), async (req, res) => 
 
     const cropData = {
       ...req.body,
-      farmerId: req.userId
+      sellerId: req.userId,
+      type: "crop"  
     };
 
     // Add image path if uploaded
@@ -103,9 +104,9 @@ router.get("/", async (req, res) => {
       });
     }
 
-    // If farmerId query param is provided, filter by farmer
-    const farmerId = req.query.farmerId;
-    const query = farmerId ? { farmerId } : {};
+    // If sellerId query param is provided, filter by seller
+    const sellerId = req.query.sellerId;
+    const query = sellerId ? { sellerId } : {};
     
     const crops = await Crop.find(query).sort({ createdAt: -1 });
     res.send(crops);
@@ -128,7 +129,7 @@ router.get("/my-crops", authMiddleware, async (req, res) => {
       });
     }
 
-    const crops = await Crop.find({ farmerId: req.userId })
+    const crops = await Crop.find({ sellerId: req.userId })
       .sort({ createdAt: -1 });
     
     res.send(crops);
@@ -151,7 +152,7 @@ router.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
       });
     }
 
-    const crop = await Crop.findOne({ _id: req.params.id, farmerId: req.userId });
+    const crop = await Crop.findOne({ _id: req.params.id, sellerId: req.userId });
     
     if (!crop) {
       return res.status(404).json({
@@ -254,7 +255,7 @@ router.put("/:id/status", authMiddleware, async (req, res) => {
 
     const { status } = req.body;
     
-    const crop = await Crop.findOne({ _id: req.params.id, farmerId: req.userId });
+    const crop = await Crop.findOne({ _id: req.params.id, sellerId: req.userId });
     
     if (!crop) {
       return res.status(404).json({
@@ -314,7 +315,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       });
     }
 
-    const crop = await Crop.findOne({ _id: req.params.id, farmerId: req.userId });
+    const crop = await Crop.findOne({ _id: req.params.id, sellerId: req.userId });
     
     if (!crop) {
       return res.status(404).json({
@@ -408,7 +409,7 @@ router.put("/:id/decrease-quantity", authMiddleware, async (req, res) => {
     // Add tracking event
     const ProductTracker = require("../models/ProductTracker");
     await ProductTracker.findOneAndUpdate(
-      { productId: req.params.id, productType: "Crop", sellerId: crop.farmerId },
+      { productId: req.params.id, productType: "Crop", sellerId: crop.sellerId },
       {
         $inc: { 
           totalOrders: 1,

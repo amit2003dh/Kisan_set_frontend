@@ -125,8 +125,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("updateLocation", ({ deliveryId, lat, lng, status }) => {
-    io.to(deliveryId).emit("locationUpdate", {
-      lat, lng, status
+    Order.findByIdAndUpdate(deliveryId, {
+      "deliveryPartnerInfo.currentLocation": { lat, lng, status },
+      status
+    }).then(() => {
+      io.to(deliveryId).emit("locationUpdate", { lat, lng, status });
     });
   });
 
