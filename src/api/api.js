@@ -1,16 +1,19 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL+"/api" || "http://localhost:5000/api/users",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 console.log("API Base URL:", API.defaults.baseURL);
+console.log("Environment REACT_APP_API_URL:", process.env.REACT_APP_API_URL);
+console.log("Final baseURL:", API.defaults.baseURL);
 // Request interceptor
 API.interceptors.request.use(
   (config) => {
+    console.log("API Request URL:", config.baseURL + config.url);
     // Add auth token if available
     const token = localStorage.getItem("token");
     if (token) {

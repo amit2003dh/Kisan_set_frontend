@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import io from "socket.io-client";
 
-const socket = io(process.env.REACT_APP_API_URL || "http://localhost:5000");
+const socket = io(process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000");
 console.log("Socket.IO connecting to:", socket.io.uri);
 export default function ChatBox() {
   const [msg, setMsg] = useState("");
