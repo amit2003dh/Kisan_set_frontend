@@ -94,10 +94,14 @@ export default function Navbar() {
   } else {
     // Other Users Navigation
     navLinks = [
-      { path: "/crops", label: "🌾 Crops", icon: "🌾" },
       { path: "/products", label: "🛒 Products", icon: "🛒" },
       { path: "/crop-doctor", label: "🌿 Crop Doctor", icon: "🌿" }
     ];
+
+    // Add Crops - only for farmers and buyers (not sellers)
+    if (userData?.role === "farmer" || userData?.role === "buyer") {
+      navLinks.unshift({ path: "/crops", label: "🌾 Crops", icon: "🌾" });
+    }
 
     // Add dashboard for farmers, sellers, and buyers
     if (userData?.role === "farmer") {
@@ -183,6 +187,21 @@ export default function Navbar() {
               }}
             >
               🚚 DeliveryHub
+            </Link>
+          ) : userData?.role === "seller" ? (
+            <Link 
+              to="/seller" 
+              style={{
+                textDecoration: "none",
+                fontSize: "24px",
+                fontWeight: "bold",
+                color: "var(--primary-blue)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              🏪 KisanSetu
             </Link>
           ) : (
             <Link 

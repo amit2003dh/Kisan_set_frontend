@@ -237,11 +237,8 @@ export default function SellerDashboard() {
       {/* Products Tab */}
       {activeTab === "products" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+          <div style={{ marginBottom: "24px" }}>
             <h3>🌾 Your Products</h3>
-            <Link to="/add-crop" className="btn btn-primary">
-              ➕ Add New Product
-            </Link>
           </div>
           <div className="card">
             <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "40px" }}>
