@@ -141,11 +141,29 @@ export default function BuyerDashboard() {
               <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>{stats.deliveredOrders}</p>
               <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Completed</p>
             </div>
-            <div className="card">
+            <Link 
+              to="/spending-history" 
+              className="card" 
+              style={{ 
+                textDecoration: "none", 
+                color: "inherit",
+                transition: "transform 0.2s, box-shadow 0.2s",
+                cursor: "pointer"
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
               <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Total Spent</h3>
               <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>₹{stats.totalSpent}</p>
               <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>All purchases</p>
-            </div>
+              <p style={{ fontSize: "11px", color: "var(--primary-green)", marginTop: "8px" }}>Click to view details →</p>
+            </Link>
           </div>
 
           {/* Quick Actions */}

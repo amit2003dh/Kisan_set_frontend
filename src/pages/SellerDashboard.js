@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import LiveMap from "../components/LiveMap";
 
 export default function SellerDashboard() {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -148,7 +149,20 @@ export default function SellerDashboard() {
             </div>
             <div className="card">
               <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Revenue</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>₹{overview.totalRevenue}</p>
+              <p 
+                style={{ 
+                  fontSize: "32px", 
+                  fontWeight: "700", 
+                  color: "var(--primary-green)",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationColor: "var(--primary-green)",
+                  textUnderlineOffset: "4px"
+                }}
+                onClick={() => navigate("/revenue-details")}
+              >
+                ₹{overview.totalRevenue}
+              </p>
             </div>
             <div className="card">
               <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Active Chats</h3>

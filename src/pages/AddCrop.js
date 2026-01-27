@@ -32,9 +32,12 @@ export default function AddCrop() {
     }
   });
   const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
+  const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [originalAddress, setOriginalAddress] = useState(""); // Store original address
@@ -167,12 +170,31 @@ export default function AddCrop() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setError("Image size must be less than 5MB");
+        setFieldErrors({ image: "Image size must be less than 5MB" });
         return;
       }
+      
+      // Store the actual file for upload
       setImage(file);
-      setImagePreview(URL.createObjectURL(file));
-      setError("");
+      
+      // Create preview for display
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imagePreviewUrl = reader.result;
+        setImagePreview(imagePreviewUrl);
+        
+        // For now, we'll handle single image upload since backend expects single file
+        // The backend will store it in the images array
+        setImages([imagePreviewUrl]);
+        setPrimaryImageIndex(0);
+        
+        // Clear image field error when valid file is selected
+        if (fieldErrors.image) {
+          setFieldErrors({ ...fieldErrors, image: "" });
+        }
+        setError("");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -196,6 +218,10 @@ export default function AddCrop() {
       setError("Please enter farm location address");
       return;
     }
+    if (!crop.contactInfo.phone.trim()) {
+      setError("Please enter contact phone number");
+      return;
+    }
     if (crop.location.lat === 0 || crop.location.lng === 0) {
       setError("Please get your location coordinates or use current location");
       return;
@@ -206,23 +232,40 @@ export default function AddCrop() {
     setSuccess("");
 
     try {
-      const cropData = {
-        name: crop.name.trim(),
-        quantity: parseFloat(crop.quantity),
-        price: parseFloat(crop.price),
-        harvestDate: crop.harvestDate || new Date(),
-        status: "Available",
-        description: crop.description,
-        category: crop.category,
-        qualityGrade: crop.qualityGrade,
-        minimumOrder: parseInt(crop.minimumOrder) || 1,
-        availableUntil: crop.availableUntil || null,
-        contactInfo: crop.contactInfo,
-        location: crop.location
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      
+      // Add all crop fields
+      formData.append('name', crop.name.trim());
+      formData.append('quantity', parseFloat(crop.quantity));
+      formData.append('price', parseFloat(crop.price));
+      formData.append('harvestDate', crop.harvestDate || new Date());
+      formData.append('status', "Available");
+      formData.append('description', crop.description || '');
+      formData.append('category', crop.category || '');
+      formData.append('qualityGrade', crop.qualityGrade);
+      formData.append('minimumOrder', parseInt(crop.minimumOrder) || 1);
+      formData.append('availableUntil', crop.availableUntil || '');
+      
+      // Add nested objects as JSON strings
+      formData.append('contactInfo', JSON.stringify(crop.contactInfo));
+      formData.append('location', JSON.stringify(crop.location));
+      
+      // Add images array and primaryImageIndex as JSON
+      formData.append('images', JSON.stringify(images));
+      formData.append('primaryImageIndex', primaryImageIndex || 0);
+      
+      // Add image file if exists
+      if (image) {
+        formData.append('image', image);
+      }
       
       const { data, error: err } = await apiCall(() =>
-        API.post("/crops/add", cropData)
+        API.post("/crops/add", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        })
       );
       
       if (err) {
@@ -553,7 +596,6 @@ export default function AddCrop() {
               <div style={{
                 display: "flex",
                 gap: "16px",
-                marginTop: "8px",
                 fontSize: "12px",
                 color: "var(--text-secondary)"
               }}>
@@ -561,10 +603,10 @@ export default function AddCrop() {
                 <span>Longitude: {crop.location.lng.toFixed(6) || "Not set"}</span>
               </div>
             </div>
+          </div>
 
-            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              Coordinates: {crop.location.lat.toFixed(6)}, {crop.location.lng.toFixed(6)}
-            </div>
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+            Coordinates: {crop.location.lat.toFixed(6)}, {crop.location.lng.toFixed(6)}
           </div>
 
           <div style={{ marginBottom: "32px" }}>
@@ -576,15 +618,21 @@ export default function AddCrop() {
               fontSize: "14px"
             }}>
               Crop Image
+              <span style={{ color: "var(--text-secondary)", fontWeight: "400", fontSize: "12px", marginLeft: "4px" }}>
+                (Max size: 5MB)
+              </span>
             </label>
-            <div style={{
-              border: "2px dashed var(--border)",
-              borderRadius: "var(--border-radius-sm)",
-              padding: "20px",
-              textAlign: "center",
-              background: imagePreview ? "transparent" : "var(--background)"
-            }}>
-              {imagePreview ? (
+            <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--border-radius-sm)", padding: "20px", textAlign: "center" }}>
+              {/* New Image Upload */}
+              <input
+                type="file"
+                id="crop-image-upload"
+                accept="image/*"
+                onChange={handleImageChange}
+                style={{ display: "none" }}
+              />
+              {/* New Image Preview */}
+              {imagePreview ? 
                 <div>
                   <img
                     src={imagePreview}
@@ -602,35 +650,234 @@ export default function AddCrop() {
                     onClick={() => {
                       setImage(null);
                       setImagePreview(null);
+                      setImages([]);
+                      setPrimaryImageIndex(0);
+                      // Clear image field error when user removes image
+                      if (fieldErrors.image) {
+                        setFieldErrors({ ...fieldErrors, image: "" });
+                      }
                     }}
                     className="btn btn-secondary"
-                    style={{ fontSize: "14px" }}
+                    style={{ marginTop: "8px" }}
                   >
                     Remove Image
                   </button>
                 </div>
-              ) : (
+               : (
                 <div>
                   <div style={{ fontSize: "48px", marginBottom: "12px" }}>📷</div>
                   <p style={{ color: "var(--text-secondary)", marginBottom: "12px", fontSize: "14px" }}>
                     Upload crop image (optional)
                   </p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    style={{ display: "none" }}
-                    id="crop-image-upload"
-                  />
-                  <label
-                    htmlFor="crop-image-upload"
-                    className="btn btn-secondary"
-                    style={{ cursor: "pointer", display: "inline-block", fontSize: "14px" }}
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('crop-image-upload').click()}
+                    className="btn btn-primary"
+                    disabled={loading}
                   >
-                    Choose Image
-                  </label>
+                    📤 Choose Image
+                  </button>
+                  {fieldErrors.image && (
+                    <div style={{
+                      color: "var(--error)",
+                      fontSize: "12px",
+                      marginTop: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      <span style={{ fontSize: "14px" }}>⚠️</span>
+                      {fieldErrors.image}
+                    </div>
+                  )}
                 </div>
               )}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "var(--text-primary)",
+              fontWeight: "600",
+              fontSize: "14px"
+            }}>
+              Description
+            </label>
+            <textarea
+              className="input"
+              name="description"
+              placeholder="Describe your crop (variety, quality, growing methods, etc.)"
+              value={crop.description}
+              onChange={handleChange}
+              disabled={loading}
+              rows={4}
+            />
+          </div>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "var(--text-primary)",
+              fontWeight: "600",
+              fontSize: "14px"
+            }}>
+              Category
+            </label>
+            <select
+              className="select"
+              name="category"
+              value={crop.category}
+              onChange={handleChange}
+              disabled={loading}
+              required
+            >
+              <option value="">Select category</option>
+              <option value="vegetables">🥬 Vegetables</option>
+              <option value="fruits">🍎 Fruits</option>
+              <option value="grains">🌾 Grains</option>
+              <option value="pulses">🫘 Pulses</option>
+              <option value="spices">🌶️ Spices</option>
+              <option value="other">📦 Other</option>
+            </select>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+            <div>
+              <label style={{
+                display: "block",
+                marginBottom: "8px",
+                color: "var(--text-primary)",
+                fontWeight: "600",
+                fontSize: "14px"
+              }}>
+                Quality Grade
+              </label>
+              <select
+                className="select"
+                name="qualityGrade"
+                value={crop.qualityGrade}
+                onChange={handleChange}
+                disabled={loading}
+              >
+                <option value="A">⭐ Grade A (Premium)</option>
+                <option value="B">⭐ Grade B (Good)</option>
+                <option value="C">⭐ Grade C (Standard)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{
+                display: "block",
+                marginBottom: "8px",
+                color: "var(--text-primary)",
+                fontWeight: "600",
+                fontSize: "14px"
+              }}>
+                Minimum Order (kg)
+              </label>
+              <input
+                className="input"
+                name="minimumOrder"
+                type="number"
+                min="1"
+                placeholder="1"
+                value={crop.minimumOrder}
+                onChange={handleChange}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "var(--text-primary)",
+              fontWeight: "600",
+              fontSize: "14px"
+            }}>
+              Available Until
+            </label>
+            <input
+              className="input"
+              name="availableUntil"
+              type="date"
+              value={crop.availableUntil}
+              onChange={handleChange}
+              disabled={loading}
+              min={new Date().toISOString().split('T')[0]}
+            />
+          </div>
+
+          <div style={{ marginBottom: "32px", padding: "20px", background: "var(--background)", borderRadius: "var(--border-radius-sm)" }}>
+            <h3 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>📞 Contact Information</h3>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+              <div>
+                <label style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: "var(--text-primary)",
+                  fontWeight: "600",
+                  fontSize: "14px"
+                }}>
+                  Phone Number
+                </label>
+                <input
+                  className="input"
+                  name="contactInfo.phone"
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={crop.contactInfo.phone}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: "var(--text-primary)",
+                  fontWeight: "600",
+                  fontSize: "14px"
+                }}>
+                  Email Address
+                </label>
+                <input
+                  className="input"
+                  name="contactInfo.email"
+                  type="email"
+                  placeholder="farmer@example.com"
+                  value={crop.contactInfo.email}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{
+                display: "block",
+                marginBottom: "8px",
+                color: "var(--text-primary)",
+                fontWeight: "600",
+                fontSize: "14px"
+              }}>
+                Preferred Contact Method
+              </label>
+              <select
+                className="select"
+                name="contactInfo.preferredContact"
+                value={crop.contactInfo.preferredContact}
+                onChange={handleChange}
+                disabled={loading}
+              >
+                <option value="phone">📞 Phone</option>
+                <option value="email">📧 Email</option>
+                <option value="whatsapp">💬 WhatsApp</option>
+              </select>
             </div>
           </div>
 

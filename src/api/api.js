@@ -55,7 +55,19 @@ export const apiCall = async (apiFunction) => {
     const response = await apiFunction();
     return { data: response.data, error: null };
   } catch (error) {
-    return { data: null, error: error.message || "An error occurred" };
+    console.error("API Call Error:", error);
+    // Handle different error structures
+    let errorMessage = "An error occurred";
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error && typeof error.toString === 'function') {
+        errorMessage = error.toString();
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    }
+    return { data: null, error: errorMessage };
   }
 };
 

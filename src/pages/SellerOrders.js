@@ -107,6 +107,21 @@ export default function SellerOrders() {
     return order.itemType === "crop" ? "Crop Item" : "Product Item";
   };
 
+  const getPaymentStatus = (order) => {
+    const paymentMethod = order.paymentMethod || "COD";
+    return paymentMethod === "ONLINE" ? "Payment Done" : "Payment Not Done";
+  };
+
+  const getPaymentStatusColor = (order) => {
+    const paymentMethod = order.paymentMethod || "COD";
+    return paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)";
+  };
+
+  const getPaymentStatusIcon = (order) => {
+    const paymentMethod = order.paymentMethod || "COD";
+    return paymentMethod === "ONLINE" ? "✅" : "⏳";
+  };
+
   const getItemImage = (order) => {
     // Use new items array structure
     if (order.items && order.items.length > 0 && order.itemDetails) {
@@ -410,6 +425,24 @@ export default function SellerOrders() {
                     <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment:</span>
                     <strong style={{ color: "var(--text-primary)" }}>{order.paymentMethod || "COD"}</strong>
                   </div>
+                  <div>
+                    <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment Status:</span>
+                    <strong style={{ color: getPaymentStatusColor(order) }}>
+                      {getPaymentStatusIcon(order)} {getPaymentStatus(order)}
+                    </strong>
+                  </div>
+                  {order.buyerId && (
+                    <div>
+                      <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Buyer:</span>
+                      <strong style={{ color: "var(--text-primary)" }}>{order.buyerId.name}</strong>
+                    </div>
+                  )}
+                  {order.sellerId && (
+                    <div>
+                      <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Seller:</span>
+                      <strong style={{ color: "var(--text-primary)" }}>{order.sellerId.name}</strong>
+                    </div>
+                  )}
                   {order.createdAt && (
                     <div>
                       <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Date:</span>

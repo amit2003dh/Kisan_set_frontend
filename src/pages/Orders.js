@@ -62,16 +62,16 @@ export default function Orders() {
       if (userData.role === "farmer") {
         const allOrders = data?.sales || [];
         const allPurchases = data?.purchases || [];
-        
+
         // Filter orders based on current user's role
-        const mySales = allOrders.filter(order => 
+        const mySales = allOrders.filter(order =>
           order.sellerId && order.sellerId.toString() === userData._id
         );
-        
-        const myPurchases = allPurchases.filter(order => 
+
+        const myPurchases = allPurchases.filter(order =>
           order.buyerId && order.buyerId.toString() === userData._id
         );
-        
+
         setSalesOrders(mySales);
         setOrders(myPurchases);
         calculateStats(myPurchases, mySales);
@@ -99,12 +99,12 @@ export default function Orders() {
     setStats(newStats);
   };
 
-  const filteredOrders = filter === "all" 
-    ? orders 
+  const filteredOrders = filter === "all"
+    ? orders
     : orders.filter(o => o.status?.toLowerCase() === filter);
 
-  const filteredSalesOrders = filter === "all" 
-    ? salesOrders 
+  const filteredSalesOrders = filter === "all"
+    ? salesOrders
     : salesOrders.filter(o => o.status?.toLowerCase() === filter);
 
   const getStatusColor = (status) => {
@@ -191,8 +191,8 @@ export default function Orders() {
             : "📦 My Orders"}
         </h1>
         <p>
-          {currentUser?.role === "farmer" 
-            ? "Track your crop sales and purchase orders" 
+          {currentUser?.role === "farmer"
+            ? "Track your crop sales and purchase orders"
             : "Track and manage your orders"
           }
         </p>
@@ -201,9 +201,9 @@ export default function Orders() {
       {error && <div className="error-message">{error}</div>}
 
       {/* Stats Dashboard */}
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
         gap: "16px",
         marginBottom: "32px"
       }}>
@@ -214,7 +214,7 @@ export default function Orders() {
           </div>
           <div style={{ color: "var(--text-secondary)" }}>Total Orders</div>
         </div>
-        
+
         <div className="card" style={{ textAlign: "center", padding: "20px" }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>⏳</div>
           <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ff9800" }}>
@@ -222,7 +222,7 @@ export default function Orders() {
           </div>
           <div style={{ color: "var(--text-secondary)" }}>Pending</div>
         </div>
-        
+
         <div className="card" style={{ textAlign: "center", padding: "20px" }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
           <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4caf50" }}>
@@ -230,7 +230,7 @@ export default function Orders() {
           </div>
           <div style={{ color: "var(--text-secondary)" }}>Confirmed</div>
         </div>
-        
+
         <div className="card" style={{ textAlign: "center", padding: "20px" }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>💰</div>
           <div style={{ fontSize: "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
@@ -241,9 +241,9 @@ export default function Orders() {
       </div>
 
       {/* Filter Buttons */}
-      <div style={{ 
-        display: "flex", 
-        gap: "12px", 
+      <div style={{
+        display: "flex",
+        gap: "12px",
         marginBottom: "32px",
         flexWrap: "wrap"
       }}>
@@ -282,7 +282,7 @@ export default function Orders() {
           {/* 🌾 SALES */}
           <div>
             <h2 style={{ marginBottom: "20px", color: "#2e7d32" }}>
-              🌾 My Crop Sales 
+              🌾 My Crop Sales
               <span style={{ fontSize: "14px", color: "#666", fontWeight: "normal", marginLeft: "8px" }}>
                 ({filteredSalesOrders.length} orders)
               </span>
@@ -417,6 +417,22 @@ export default function Orders() {
                           <strong style={{ color: "var(--primary-green)" }}>₹{order.total || (order.price * order.quantity) || 0}</strong>
                         </div>
                         <div>
+                          <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment:</span>
+                          <strong style={{
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                          }}>
+                            {order.paymentMethod === "ONLINE" ? "✅ Online" : "⏳ COD"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment Status:</span>
+                          <strong style={{
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                          }}>
+                            {order.paymentMethod === "ONLINE" ? "✅ Done" : "⏳ Pending"}
+                          </strong>
+                        </div>
+                        <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Date:</span>
                           <strong style={{ color: "var(--text-primary)" }}>
                             {new Date(order.createdAt).toLocaleDateString()}
@@ -426,14 +442,14 @@ export default function Orders() {
                     </div>
 
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <Link 
+                      <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
                       >
                         💬 Chat
                       </Link>
-                      <Link 
+                      <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
@@ -490,9 +506,9 @@ export default function Orders() {
                               border: "1px solid var(--border-color)"
                             }}
                             onError={(e) => {
-                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" : 
-                                          order.items?.[0]?.itemType === "seed" ? "🌱" : 
-                                          order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
+                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" :
+                                order.items?.[0]?.itemType === "seed" ? "🌱" :
+                                  order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
                               e.target.style.display = "none";
                               const parent = e.target.parentElement;
                               const fallback = document.createElement("div");
@@ -587,6 +603,22 @@ export default function Orders() {
                           <strong style={{ color: "var(--primary-green)" }}>₹{order.total || (order.price * order.quantity) || 0}</strong>
                         </div>
                         <div>
+                          <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment:</span>
+                          <strong style={{
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                          }}>
+                            {order.paymentMethod === "ONLINE" ? "✅ Online" : "⏳ COD"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment Status:</span>
+                          <strong style={{
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                          }}>
+                            {order.paymentMethod === "ONLINE" ? "✅ Done" : "⏳ Pending"}
+                          </strong>
+                        </div>
+                        <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Date:</span>
                           <strong style={{ color: "var(--text-primary)" }}>
                             {new Date(order.createdAt).toLocaleDateString()}
@@ -596,14 +628,14 @@ export default function Orders() {
                     </div>
 
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <Link 
+                      <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
                       >
                         💬 Chat
                       </Link>
-                      <Link 
+                      <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
@@ -627,8 +659,8 @@ export default function Orders() {
                   No {filter === "all" ? "" : filter} orders yet
                 </h3>
                 <p style={{ color: "var(--text-secondary)" }}>
-                  {filter === "all" 
-                    ? "Start shopping to see your orders here" 
+                  {filter === "all"
+                    ? "Start shopping to see your orders here"
                     : `No ${filter} orders found`
                   }
                 </p>
@@ -664,9 +696,9 @@ export default function Orders() {
                               border: "1px solid var(--border-color)"
                             }}
                             onError={(e) => {
-                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" : 
-                                          order.items?.[0]?.itemType === "seed" ? "🌱" : 
-                                          order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
+                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" :
+                                order.items?.[0]?.itemType === "seed" ? "🌱" :
+                                  order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
                               e.target.style.display = "none";
                               const parent = e.target.parentElement;
                               const fallback = document.createElement("div");
@@ -770,14 +802,14 @@ export default function Orders() {
                     </div>
 
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <Link 
+                      <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
                       >
                         💬 Chat
                       </Link>
-                      <Link 
+                      <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
                         style={{ fontSize: "12px", padding: "6px 12px" }}
@@ -791,7 +823,7 @@ export default function Orders() {
             )}
           </div>
 
-          <ChatBox />
+
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ export default function Profile() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     fetchUserProfile();
@@ -49,7 +50,7 @@ export default function Profile() {
       });
       if (data.profilePhoto) {
         // Add timestamp to ensure fresh image load
-        setPhotoPreview(`${API_BASE_URL}${data.profilePhoto}?t=${Date.now()}`);
+        setPhotoPreview(`${STATIC_BASE_URL}${data.profilePhoto}?t=${Date.now()}`);
       } else {
         setPhotoPreview(null);
       }
@@ -117,7 +118,7 @@ export default function Profile() {
       formData.append("photo", selectedPhoto);
 
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/photo`, {
+      const response = await fetch(`${API_BASE_URL}/users/profile/photo`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
@@ -140,7 +141,7 @@ export default function Profile() {
         setUser(data.user);
         if (data.user.profilePhoto) {
           // Add timestamp to force browser to reload the image (cache busting)
-          const photoUrl = `${API_BASE_URL}${data.user.profilePhoto}?t=${Date.now()}`;
+          const photoUrl = `${STATIC_BASE_URL}${data.user.profilePhoto}?t=${Date.now()}`;
           setPhotoPreview(photoUrl);
         } else {
           setPhotoPreview(null);

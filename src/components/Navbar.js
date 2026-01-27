@@ -91,6 +91,11 @@ export default function Navbar() {
       { path: "/delivery-partner/orders", label: "📦 My Orders", icon: "📦" },
       { path: "/tracking", label: "📍 Tracking", icon: "📍" }
     ];
+  } else if (userData?.role === "admin") {
+    // Admin Navigation
+    navLinks = [
+      { path: "/admin/products", label: "🔐 Admin", icon: "🔐" }
+    ];
   } else {
     // Other Users Navigation
     navLinks = [

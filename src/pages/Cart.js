@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, updateQuantity, removeFromCart, clearCart, getCartTotal, loading: cartLoading } = useCart();
@@ -111,6 +114,42 @@ export default function Cart() {
                   borderBottom: "1px solid var(--border)",
                 }}
               >
+                {/* Product/Crop Image */}
+                {(item.type === "crop" && item.image) ? (
+                  <img
+                    src={item.image.startsWith("http") ? item.image : `${STATIC_BASE_URL}${item.image}`}
+                    alt={item.name}
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      objectFit: "cover",
+                      borderRadius: "var(--border-radius-sm)",
+                      flexShrink: 0
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                ) : (item.type !== "crop" && item.images && item.images.length > 0 && item.images[0]) ? (
+                  <img
+                    src={item.images[0].startsWith("http") ? item.images[0] : `${STATIC_BASE_URL}${item.images[0]}`}
+                    alt={item.name}
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      objectFit: "cover",
+                      borderRadius: "var(--border-radius-sm)",
+                      flexShrink: 0
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                
+                {/* Fallback placeholder */}
                 <div
                   style={{
                     width: "120px",
@@ -119,7 +158,7 @@ export default function Cart() {
                       ? "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)"
                       : "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)",
                     borderRadius: "var(--border-radius-sm)",
-                    display: "flex",
+                    display: "none",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "48px",

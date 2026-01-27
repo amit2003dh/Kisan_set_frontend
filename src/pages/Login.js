@@ -16,11 +16,13 @@ export default function Login() {
     if (token && user) {
       try {
         const userData = JSON.parse(user);
-        // Redirect based on role
-        if (userData.role === "farmer") {
-          navigate("/farmer", { replace: true });
-        } else if (userData.role === "delivery_partner") {
+        // Redirect based on role and verification status
+        if (userData.role === "delivery_partner") {
+          // Always redirect delivery partners to their dashboard
+          // The dashboard will show appropriate content based on verification status
           navigate("/delivery-partner", { replace: true });
+        } else if (userData.role === "farmer") {
+          navigate("/farmer", { replace: true });
         } else {
           navigate("/crops", { replace: true });
         }
@@ -70,8 +72,20 @@ export default function Login() {
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("userRole", data.user.role);
 
-    // Redirect based on role
-    navigate(data.user.role === "farmer" ? "/farmer" : "/crops");
+    // Check delivery partner registration status and redirect accordingly
+    if (data.user.role === "delivery_partner") {
+      if (data.deliveryPartnerStatus?.isVerified) {
+        // Verified delivery partner - go to dashboard
+        navigate("/delivery-partner");
+      } else {
+        // Not verified delivery partner - go to dashboard to see registration prompt
+        navigate("/delivery-partner");
+      }
+    } else if (data.user.role === "farmer") {
+      navigate("/farmer");
+    } else {
+      navigate("/crops");
+    }
   };
 
   const handleSignup = async (e) => {

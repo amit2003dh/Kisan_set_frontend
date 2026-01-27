@@ -9,20 +9,93 @@ export default function DeliveryPartnerDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [currentLocation, setCurrentLocation] = useState({ lat: 0, lng: 0 });
   const [isOnline, setIsOnline] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [earnings, setEarnings] = useState({ total: 0, today: 0, thisWeek: 0, thisMonth: 0 });
+  const [performance, setPerformance] = useState({ avgDeliveryTime: 0, successRate: 0, totalDelivered: 0 });
+  const [authStatus, setAuthStatus] = useState({ isAuthenticated: false, isDeliveryPartner: false });
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchDashboardData();
-    fetchCurrentLocation();
-    checkOnlineStatus();
+    const user = localStorage.getItem("user");
+    const userData = user ? JSON.parse(user) : null;
+    
+    console.log("🔍 Delivery Partner Dashboard - Auth Check:");
+    console.log("🔍 User from localStorage:", user);
+    console.log("🔍 Parsed userData:", userData);
+    console.log("🔍 User role:", userData?.role);
+    console.log("🔍 User isVerified:", userData?.isVerified);
+    console.log("🔍 Delivery Partner Registration:", userData?.deliveryPartnerRegistration);
+    
+    if (!user) {
+      console.log("🔍 No user found, redirecting to login");
+      navigate("/login");
+      return;
+    }
+
+    // Check if user is a delivery partner by checking their role and verification status
+    const isDeliveryPartner = userData.role === "delivery_partner" && userData.isVerified === true;
+    console.log("🔍 Is delivery partner:", isDeliveryPartner);
+    
+    setAuthStatus({
+      isAuthenticated: true,
+      isDeliveryPartner: isDeliveryPartner
+    });
+
+    // Only fetch dashboard data if user is a verified delivery partner
+    if (isDeliveryPartner) {
+      console.log("🔍 User is verified delivery partner, fetching dashboard data");
+      fetchDashboardData();
+      fetchCurrentLocation();
+      checkOnlineStatus();
+      fetchEarnings();
+      fetchPerformance();
+    } else {
+      console.log("🔍 User is not a verified delivery partner, setting loading to false");
+      setLoading(false);
+    }
   }, []);
+
+  const fetchEarnings = async () => {
+    try {
+      const { data } = await apiCall(() => API.get("/delivery-partner/earnings"));
+      if (data) {
+        setEarnings(data);
+      }
+    } catch (error) {
+      console.error("Error fetching earnings:", error);
+      // Set mock data for demo
+      setEarnings({
+        total: 15420,
+        today: 850,
+        thisWeek: 3200,
+        thisMonth: 8900
+      });
+    }
+  };
+
+  const fetchPerformance = async () => {
+    try {
+      const { data } = await apiCall(() => API.get("/delivery-partner/performance"));
+      if (data) {
+        setPerformance(data);
+      }
+    } catch (error) {
+      console.error("Error fetching performance:", error);
+      // Set mock data for demo
+      setPerformance({
+        avgDeliveryTime: 28,
+        successRate: 96.5,
+        totalDelivered: 147
+      });
+    }
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError("");
     
     const { data, error: err } = await apiCall(() =>
-      API.get("/orders/delivery/my-orders")
+      API.get("/delivery-partner/my-orders")
     );
     
     if (err) {
@@ -118,11 +191,178 @@ export default function DeliveryPartnerDashboard() {
     }
   };
 
+  const handleStartDelivery = async (deliveryId) => {
+    try {
+      const { error: err } = await apiCall(() =>
+        API.put(`/delivery/${deliveryId}/status`, { status: "In Transit" })
+      );
+      
+      if (err) {
+        setError(err);
+      } else {
+        fetchDashboardData(); // Refresh data
+      }
+    } catch (error) {
+      console.error("Error starting delivery:", error);
+      setError("Failed to start delivery");
+    }
+  };
+
+  const handleCompleteDelivery = async (deliveryId) => {
+    try {
+      const { error: err } = await apiCall(() =>
+        API.put(`/delivery/${deliveryId}/status`, { status: "Delivered" })
+      );
+      
+      if (err) {
+        setError(err);
+      } else {
+        fetchDashboardData(); // Refresh data
+      }
+    } catch (error) {
+      console.error("Error completing delivery:", error);
+      setError("Failed to complete delivery");
+    }
+  };
+
   if (loading) {
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="loading-spinner"></div>
         <p style={{ textAlign: "center", color: "var(--text-secondary)" }}>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  // Debug: Log authStatus values
+  console.log("🔍 Render - Auth Status:", authStatus);
+  console.log("🔍 Render - Is Authenticated:", authStatus.isAuthenticated);
+  console.log("🔍 Render - Is Delivery Partner:", authStatus.isDeliveryPartner);
+
+  // Show registration prompt if user is not a verified delivery partner
+  if (!authStatus.isDeliveryPartner && authStatus.isAuthenticated) {
+    console.log("🔍 Showing registration prompt");
+    
+    // Get user data to show specific message
+    const user = localStorage.getItem("user");
+    const userData = user ? JSON.parse(user) : null;
+    const registrationStatus = userData?.deliveryPartnerRegistration?.applicationStatus || "not_applied";
+    const hasApplied = registrationStatus === "pending" || registrationStatus === "rejected";
+    
+    console.log("🔍 Registration Status:", registrationStatus);
+    console.log("🔍 Has Applied:", hasApplied);
+    
+    return (
+      <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px", textAlign: "center" }}>
+        <div className="card" style={{ maxWidth: "500px", margin: "0 auto", padding: "40px" }}>
+          <div style={{ fontSize: "64px", marginBottom: "24px" }}>🚚</div>
+          <h2 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>
+            {registrationStatus === "pending" ? "Application Pending Verification" : 
+             registrationStatus === "rejected" ? "Application Rejected" :
+             "Not Registered as Delivery Partner"}
+          </h2>
+          <p style={{ marginBottom: "32px", color: "var(--text-secondary)", lineHeight: "1.6" }}>
+            {registrationStatus === "pending" 
+              ? "Your delivery partner application is pending admin verification. You will receive an email once your account is approved."
+              : registrationStatus === "rejected"
+              ? "Your delivery partner application was rejected. You can reapply with updated information."
+              : "Your account is not registered as a delivery partner. Please register as a delivery partner to access this dashboard."
+            }
+          </p>
+          
+          {!hasApplied && (
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+              gap: "16px", 
+              marginBottom: "32px" 
+            }}>
+              <div style={{ 
+                padding: "20px", 
+                textAlign: "center", 
+                background: "var(--primary-blue)", 
+                color: "white", 
+                borderRadius: "8px" 
+              }}>
+                <div style={{ fontSize: "32px", marginBottom: "8px" }}>🚚</div>
+                <h4 style={{ margin: "0 0 8px 0" }}>Become a Partner</h4>
+                <p style={{ margin: "0", fontSize: "14px" }}>Register as delivery partner</p>
+              </div>
+              
+              <div style={{ 
+                padding: "20px", 
+                textAlign: "center", 
+                background: "#4caf50", 
+                color: "white", 
+                borderRadius: "8px" 
+              }}>
+                <div style={{ fontSize: "32px", marginBottom: "8px" }}>👤</div>
+                <h4 style={{ margin: "0 0 8px 0" }}>Already Registered?</h4>
+                <p style={{ margin: "0", fontSize: "14px" }}>Login as delivery partner</p>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "24px" }}>
+            {!hasApplied && (
+              <Link 
+                to="/delivery-partner/register" 
+                className="btn btn-primary"
+                style={{ 
+                  fontSize: "16px", 
+                  padding: "12px 24px", 
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+              >
+                🚚 Register Now
+              </Link>
+            )}
+            
+            {registrationStatus === "rejected" && (
+              <Link 
+                to="/delivery-partner/register" 
+                className="btn btn-primary"
+                style={{ 
+                  fontSize: "16px", 
+                  padding: "12px 24px", 
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+              >
+                🔄 Reapply Now
+              </Link>
+            )}
+            
+            <Link 
+              to="/login" 
+              className="btn btn-secondary"
+              style={{ 
+                fontSize: "16px", 
+                padding: "12px 24px", 
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              👤 {hasApplied ? "Check Status" : "Login"}
+            </Link>
+          </div>
+
+          <div style={{ marginTop: "24px", textAlign: "center" }}>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
+              {hasApplied 
+                ? "Need help? Contact support for assistance."
+                : "Already have an account? <Link to=\"/login\" style={{ color: \"var(--primary-blue)\", textDecoration: \"none\" }}>Login here</Link>"
+              }
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -162,6 +402,52 @@ export default function DeliveryPartnerDashboard() {
               {isOnline ? "🔴 Go Offline" : "🟢 Go Online"}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div style={{ 
+        borderBottom: "2px solid var(--border-color)", 
+        marginBottom: "32px" 
+      }}>
+        <div style={{ display: "flex", gap: "0", overflowX: "auto" }}>
+          {[/* eslint-disable indent */
+            { id: "overview", label: "📊 Overview", icon: "📊" },
+            { id: "queue", label: "📦 Delivery Queue", icon: "📦" },
+            { id: "map", label: "🗺️ Map View", icon: "🗺️" },
+            { id: "earnings", label: "💰 Earnings", icon: "💰" },
+            { id: "performance", label: "📈 Performance", icon: "📈" },
+            { id: "communication", label: "💬 Communication", icon: "💬" }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: "12px 24px",
+                border: "none",
+                background: activeTab === tab.id ? "var(--primary-blue)" : "transparent",
+                color: activeTab === tab.id ? "white" : "var(--text-secondary)",
+                borderBottom: activeTab === tab.id ? "3px solid var(--primary-blue)" : "3px solid transparent",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                transition: "all 0.3s ease",
+                whiteSpace: "nowrap"
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== tab.id) {
+                  e.target.style.background = "var(--background-alt)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== tab.id) {
+                  e.target.style.background = "transparent";
+                }
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 

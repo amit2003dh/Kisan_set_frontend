@@ -6,12 +6,24 @@ export default function ManageCrops() {
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [editingCrop, setEditingCrop] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [currentUser, setCurrentUser] = useState(null);
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
+    // Get current user from localStorage
+    const user = localStorage.getItem("user");
+    if (user) {
+      try {
+        setCurrentUser(JSON.parse(user));
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+    }
     fetchCrops();
   }, []);
 
@@ -36,7 +48,8 @@ export default function ManageCrops() {
     setEditingCrop({
       ...crop,
       quantity: crop.quantity.toString(),
-      price: crop.price.toString()
+      price: crop.price.toString(),
+      primaryImageIndex: crop.primaryImageIndex || 0
     });
     setShowEditModal(true);
   };
@@ -44,29 +57,101 @@ export default function ManageCrops() {
   const handleUpdateCrop = async (e) => {
     e.preventDefault();
     
-    const updateData = {
-      name: editingCrop.name,
-      quantity: parseFloat(editingCrop.quantity),
-      price: parseFloat(editingCrop.price),
-      description: editingCrop.description,
-      category: editingCrop.category,
-      qualityGrade: editingCrop.qualityGrade,
-      minimumOrder: parseInt(editingCrop.minimumOrder) || 1,
-      availableUntil: editingCrop.availableUntil || null,
-      contactInfo: editingCrop.contactInfo,
-      location: editingCrop.location
-    };
-
-    const { data, error: err } = await apiCall(() =>
-      API.put(`/crops/${editingCrop._id}`, updateData)
-    );
+    // Clear previous errors
+    setError("");
+    setFieldErrors({});
     
-    if (err) {
-      setError(err);
-    } else {
+    try {
+      let response;
+      
+      if (editingCrop.newImageFile) {
+        // If there's a new image, use FormData
+        const formData = new FormData();
+        
+        // Add all crop fields
+        formData.append('name', editingCrop.name);
+        formData.append('quantity', parseFloat(editingCrop.quantity));
+        formData.append('price', parseFloat(editingCrop.price));
+        formData.append('description', editingCrop.description || '');
+        formData.append('category', editingCrop.category || '');
+        formData.append('qualityGrade', editingCrop.qualityGrade || '');
+        formData.append('minimumOrder', parseInt(editingCrop.minimumOrder) || 1);
+        formData.append('availableUntil', editingCrop.availableUntil || '');
+        formData.append('contactInfo', JSON.stringify(editingCrop.contactInfo || {}));
+        formData.append('location', JSON.stringify(editingCrop.location || {}));
+        
+        // Add images array and primary image index
+        formData.append('images', JSON.stringify(editingCrop.images || []));
+        formData.append('primaryImageIndex', editingCrop.primaryImageIndex || 0);
+        
+        // Add the new image
+        formData.append('image', editingCrop.newImageFile);
+        
+        response = await API.put(`/crops/${editingCrop._id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        // If no new image, use regular JSON
+        const updateData = {
+          name: editingCrop.name,
+          quantity: parseFloat(editingCrop.quantity),
+          price: parseFloat(editingCrop.price),
+          description: editingCrop.description,
+          category: editingCrop.category,
+          qualityGrade: editingCrop.qualityGrade,
+          minimumOrder: parseInt(editingCrop.minimumOrder) || 1,
+          availableUntil: editingCrop.availableUntil || null,
+          contactInfo: editingCrop.contactInfo,
+          location: editingCrop.location,
+          images: editingCrop.images,
+          primaryImageIndex: editingCrop.primaryImageIndex || 0
+        };
+
+        const { data, error: err } = await apiCall(() =>
+          API.put(`/crops/${editingCrop._id}`, updateData)
+        );
+        
+        if (err) {
+          // Handle field-specific errors
+          if (err.includes('name')) {
+            setFieldErrors({ name: err });
+          } else if (err.includes('price')) {
+            setFieldErrors({ price: err });
+          } else if (err.includes('quantity')) {
+            setFieldErrors({ quantity: err });
+          } else if (err.includes('image')) {
+            setFieldErrors({ image: err });
+          } else {
+            setError(err);
+          }
+          return;
+        }
+        
+        response = { data };
+      }
+      
+      // Success
       setShowEditModal(false);
       setEditingCrop(null);
       fetchCrops(); // Refresh the list
+    } catch (error) {
+      console.error("Update error:", error);
+      const errorMessage = error.response?.data?.error || "Failed to update crop";
+      
+      // Handle field-specific errors from backend
+      if (errorMessage.includes('name')) {
+        setFieldErrors({ name: errorMessage });
+      } else if (errorMessage.includes('price')) {
+        setFieldErrors({ price: errorMessage });
+      } else if (errorMessage.includes('quantity')) {
+        setFieldErrors({ quantity: errorMessage });
+      } else if (errorMessage.includes('image')) {
+        setFieldErrors({ image: errorMessage });
+      } else {
+        setError(errorMessage);
+      }
     }
   };
 
@@ -89,6 +174,18 @@ export default function ManageCrops() {
   const handleStatusChange = async (cropId, newStatus) => {
     const { data, error: err } = await apiCall(() =>
       API.put(`/crops/${cropId}/status`, { status: newStatus })
+    );
+    
+    if (err) {
+      setError(err);
+    } else {
+      fetchCrops(); // Refresh the list
+    }
+  };
+
+  const handleVerificationChange = async (cropId, verified) => {
+    const { data, error: err } = await apiCall(() =>
+      API.put(`/crops/${cropId}/verify`, { verified })
     );
     
     if (err) {
@@ -205,7 +302,7 @@ export default function ManageCrops() {
               {/* Crop Image */}
               {crop.image && (
                 <img
-                  src={crop.image.startsWith("http") ? crop.image : `${API_BASE_URL}${crop.image}`}
+                  src={crop.image.startsWith("http") ? crop.image : `${STATIC_BASE_URL}${crop.image}`}
                   alt={crop.name}
                   style={{
                     width: "100%",
@@ -238,7 +335,21 @@ export default function ManageCrops() {
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
                   <div>
-                    <h3 style={{ margin: "0 0 4px 0" }}>{crop.name}</h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                      <h3 style={{ margin: 0 }}>{crop.name}</h3>
+                      {crop.verified && (
+                        <span style={{
+                          backgroundColor: "#4caf50",
+                          color: "white",
+                          fontSize: "12px",
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          fontWeight: "500"
+                        }}>
+                          ✓ Verified
+                        </span>
+                      )}
+                    </div>
                     <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
                       {crop.category} • Grade {crop.qualityGrade}
                     </p>
@@ -287,6 +398,31 @@ export default function ManageCrops() {
                   >
                     ✏️ Edit
                   </button>
+                  
+                  {/* Verification buttons - only for admins */}
+                  {currentUser && currentUser.role === "admin" && (
+                    <>
+                      {!crop.verified && (
+                        <button
+                          onClick={() => handleVerificationChange(crop._id, true)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "14px", padding: "8px 12px" }}
+                        >
+                          ✅ Verify
+                        </button>
+                      )}
+                      
+                      {crop.verified && (
+                        <button
+                          onClick={() => handleVerificationChange(crop._id, false)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "14px", padding: "8px 12px" }}
+                        >
+                          ❌ Unverify
+                        </button>
+                      )}
+                    </>
+                  )}
                   
                   {crop.quantity > 0 && crop.status === "Available" && (
                     <button
@@ -404,6 +540,276 @@ export default function ManageCrops() {
                   rows={3}
                 />
               </div>
+
+              {/* Image Upload Section */}
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", marginBottom: "4px", fontWeight: "600" }}>
+                  Crop Image
+                  <span style={{ color: "var(--text-secondary)", fontWeight: "400", fontSize: "12px", marginLeft: "4px" }}>
+                    (Max size: 5MB)
+                  </span>
+                </label>
+                
+                {/* Current Images Preview */}
+                {editingCrop.images && editingCrop.images.length > 0 && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px" }}>
+                      Current Images:
+                    </p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {editingCrop.images.map((image, index) => (
+                        <div key={index} style={{ position: "relative" }}>
+                          <img
+                            src={image.startsWith("http") ? image : `${STATIC_BASE_URL}${image}`}
+                            alt={`Crop image ${index + 1}`}
+                            style={{
+                              width: "80px",
+                              height: "80px",
+                              objectFit: "cover",
+                              borderRadius: "var(--border-radius-sm)",
+                              border: editingCrop.primaryImageIndex === index ? "2px solid var(--primary-green)" : "2px solid var(--border)",
+                              opacity: editingCrop.primaryImageIndex === index ? 1 : 0.8
+                            }}
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/80x80/4caf50/ffffff?text=🌾";
+                            }}
+                          />
+                          <div style={{ 
+                            position: "absolute", 
+                            top: "2px", 
+                            right: "2px", 
+                            display: "flex", 
+                            gap: "2px" 
+                          }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newImages = editingCrop.images.filter((_, i) => i !== index);
+                                const newPrimaryIndex = editingCrop.primaryImageIndex === index ? 0 : 
+                                  editingCrop.primaryImageIndex > index ? editingCrop.primaryImageIndex - 1 : editingCrop.primaryImageIndex;
+                                setEditingCrop({
+                                  ...editingCrop,
+                                  images: newImages,
+                                  primaryImageIndex: newPrimaryIndex
+                                });
+                              }}
+                              style={{
+                                background: "rgba(244, 67, 54, 0.9)",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "50%",
+                                width: "20px",
+                                height: "20px",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center"
+                              }}
+                              title="Delete image"
+                            >
+                              ×
+                            </button>
+                            {editingCrop.primaryImageIndex !== index && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCrop({
+                                    ...editingCrop,
+                                    primaryImageIndex: index
+                                  });
+                                }}
+                                style={{
+                                  background: "rgba(76, 175, 80, 0.9)",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: "20px",
+                                  height: "20px",
+                                  fontSize: "12px",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center"
+                                }}
+                                title="Set as primary image"
+                              >
+                                ★
+                              </button>
+                            )}
+                          </div>
+                          {editingCrop.primaryImageIndex === index && (
+                            <div style={{
+                              position: "absolute",
+                              bottom: "2px",
+                              left: "2px",
+                              background: "var(--primary-green)",
+                              color: "white",
+                              fontSize: "10px",
+                              padding: "2px 4px",
+                              borderRadius: "2px",
+                              fontWeight: "600"
+                            }}>
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Legacy single image support */}
+                {!editingCrop.images && editingCrop.image && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px" }}>
+                      Current Image:
+                    </p>
+                    <img
+                      src={editingCrop.image.startsWith("http") ? editingCrop.image : `${STATIC_BASE_URL}${editingCrop.image}`}
+                      alt="Current crop image"
+                      style={{
+                        width: "80px",
+                        height: "80px",
+                        objectFit: "cover",
+                        borderRadius: "var(--border-radius-sm)",
+                        border: "2px solid var(--border)"
+                      }}
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/80x80/4caf50/ffffff?text=🌾";
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* New Image Upload */}
+                <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--border-radius-sm)", padding: "20px", textAlign: "center" }}>
+                  <input
+                    type="file"
+                    id="crop-image-upload"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        // Validate file size (5MB limit)
+                        if (file.size > 5 * 1024 * 1024) {
+                          setFieldErrors({ image: "Image size must be less than 5MB" });
+                          return;
+                        }
+                        
+                        // Clear image field error when user selects a valid file
+                        if (fieldErrors.image) {
+                          setFieldErrors({ ...fieldErrors, image: "" });
+                        }
+                        
+                        // Create preview
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setEditingCrop({
+                            ...editingCrop,
+                            newImagePreview: reader.result,
+                            newImageFile: file
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    style={{ display: "none" }}
+                  />
+                  
+                  {/* New Image Preview */}
+                  {editingCrop.newImagePreview ? (
+                    <div>
+                      <img
+                        src={editingCrop.newImagePreview}
+                        alt="New crop image"
+                        style={{
+                          width: "120px",
+                          height: "120px",
+                          objectFit: "cover",
+                          borderRadius: "var(--border-radius-sm)",
+                          marginBottom: "12px",
+                          border: "2px solid var(--primary-green)"
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCrop({
+                              ...editingCrop,
+                              newImagePreview: null,
+                              newImageFile: null
+                            });
+                            document.getElementById('crop-image-upload').value = '';
+                            // Clear image field error when user removes image
+                            if (fieldErrors.image) {
+                              setFieldErrors({ ...fieldErrors, image: "" });
+                            }
+                          }}
+                          className="btn btn-outline"
+                          style={{ fontSize: "12px", padding: "6px 12px" }}
+                        >
+                          Remove
+                        </button>
+                        <label
+                          htmlFor="crop-image-upload"
+                          className="btn btn-secondary"
+                          style={{ fontSize: "12px", padding: "6px 12px", cursor: "pointer", margin: 0 }}
+                        >
+                          Change
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: "48px", marginBottom: "12px", color: "var(--text-secondary)" }}>
+                        📷
+                      </div>
+                      <p style={{ margin: "0 0 12px 0", color: "var(--text-secondary)" }}>
+                        Click to add a new crop image
+                      </p>
+                      <label
+                        htmlFor="crop-image-upload"
+                        className="btn btn-outline"
+                        style={{ cursor: "pointer", margin: 0 }}
+                      >
+                        Choose Image
+                      </label>
+                      {fieldErrors.image && (
+                        <div style={{
+                          color: "var(--error)",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}>
+                          <span style={{ fontSize: "14px" }}>⚠️</span>
+                          {fieldErrors.image}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* General Error Message */}
+              {error && (
+                <div style={{
+                  backgroundColor: "#fee",
+                  border: "1px solid var(--error)",
+                  borderRadius: "var(--border-radius-sm)",
+                  padding: "12px",
+                  marginBottom: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}>
+                  <span style={{ fontSize: "16px", color: "var(--error)" }}>⚠️</span>
+                  <span style={{ color: "var(--error)", fontSize: "14px" }}>{error}</span>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                 <button

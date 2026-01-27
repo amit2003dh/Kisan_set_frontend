@@ -12,6 +12,7 @@ import AddCrop from "./pages/AddCrop";
 import AddProduct from "./pages/AddProduct";
 import ProductStore from "./pages/ProductStore";
 import Orders from "./pages/Orders";
+import DeliveryPartnerRegistration from './pages/DeliveryPartnerRegistration';
 import SellerOrders from "./pages/SellerOrders";
 import OrderCommunication from "./pages/OrderCommunication";
 import DeliveryPartnerCommunication from "./pages/DeliveryPartnerCommunication";
@@ -24,6 +25,8 @@ import Cart from "./pages/Cart";
 import Profile from "./pages/Profile";
 import RevenueDetails from "./pages/RevenueDetails";
 import CropSalesDetails from "./pages/CropSalesDetails";
+import AdminProducts from "./pages/AdminProducts";
+import SpendingHistory from "./pages/SpendingHistory";
 
 function AppContent() {
   const location = useLocation();
@@ -38,6 +41,7 @@ function AppContent() {
         <Route path="/seller" element={<SellerDashboard />} />
         <Route path="/buyer" element={<BuyerDashboard />} />
         <Route path="/delivery-partner" element={<DeliveryPartnerDashboard />} />
+        <Route path="/delivery-partner/register" element={<DeliveryPartnerRegistration />} />
         <Route path="/delivery-partner/orders" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerOrders /></ProtectedRoute>} />
         <Route path="/manage-crops" element={<ProtectedRoute requiredRole="farmer" excludeRoles={["delivery_partner"]}><ManageCrops /></ProtectedRoute>} />
         <Route path="/manage-products" element={<ProtectedRoute requiredRole="seller" excludeRoles={["delivery_partner"]}><ManageProducts /></ProtectedRoute>} />
@@ -54,8 +58,10 @@ function AppContent() {
         <Route path="/crop-doctor" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><CropDoctor /></ProtectedRoute>} />
         <Route path="/payment" element={<ProtectedRoute excludeRoles={["delivery_partner", "seller"]}><Payment /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/spending-history" element={<ProtectedRoute requiredRole="buyer" excludeRoles={["delivery_partner", "seller", "farmer"]}><SpendingHistory /></ProtectedRoute>} />
         <Route path="/revenue-details" element={<ProtectedRoute requiredRole={["farmer", "seller"]}><RevenueDetails /></ProtectedRoute>} />
         <Route path="/crop-sales/:cropId" element={<ProtectedRoute requiredRole={["farmer", "seller"]}><CropSalesDetails /></ProtectedRoute>} />
+        <Route path="/admin/products" element={<ProtectedRoute requiredRole="admin"><AdminProducts /></ProtectedRoute>} />
       </Routes>
     </>
   );

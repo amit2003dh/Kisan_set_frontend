@@ -10,7 +10,8 @@ export default function CropList() {
   const [error, setError] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const { addToCart } = useCart();
-  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     // Get current user from localStorage
@@ -122,7 +123,7 @@ export default function CropList() {
                 }}>
                   {crop.image ? (
                     <img 
-                      src={crop.image.startsWith("http") ? crop.image : `${API_BASE_URL}${crop.image}`} 
+                      src={crop.image.startsWith("http") ? crop.image : `${STATIC_BASE_URL}${crop.image}`} 
                       alt={crop.name || "Crop"} 
                       style={{ 
                         width: "100%", 
@@ -131,13 +132,22 @@ export default function CropList() {
                         display: "block"
                       }}
                       onError={(e) => {
-                        // Fallback to icon if image fails to load
+                        console.error("Failed to load crop image:", crop.image, "Full URL:", `${STATIC_BASE_URL}${crop.image}`);
+                        // Hide the broken image and show fallback
+                        e.target.style.display = "none";
                         const parent = e.target.parentElement;
-                        parent.innerHTML = "";
-                        const fallback = document.createElement("div");
-                        fallback.style.cssText = "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); font-size: 64px;";
-                        fallback.textContent = "🌾";
-                        parent.appendChild(fallback);
+                        if (parent) {
+                          parent.style.background = "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)";
+                          parent.style.display = "flex";
+                          parent.style.alignItems = "center";
+                          parent.style.justifyContent = "center";
+                          parent.style.color = "white";
+                          parent.style.fontSize = "64px";
+                          parent.innerHTML = "🌾";
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log("Crop image loaded successfully:", crop.image);
                       }}
                     />
                   ) : (
@@ -155,12 +165,32 @@ export default function CropList() {
                   )}
                 </div>
                 <h3 style={{
-                  marginBottom: "8px",
-                  fontSize: "20px",
+                  margin: "0",
+                  fontSize: "16px",
                   color: "var(--text-primary)",
-                  fontWeight: "600"
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
                 }}>
                   {crop.name || "Crop"}
+                  {crop.verified && (
+                    <span 
+                      style={{
+                        backgroundColor: "#4caf50",
+                        color: "white",
+                        fontSize: "12px",
+                        padding: "2px 6px",
+                        borderRadius: "12px",
+                        fontWeight: "500",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      }}
+                      title="Verified Crop"
+                    >
+                      ✓ Verified
+                    </span>
+                  )}
                 </h3>
                 <div style={{ marginBottom: "12px" }}>
                   <span style={{

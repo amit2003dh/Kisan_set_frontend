@@ -6,23 +6,37 @@ import { useCart } from "../context/CartContext";
 export default function ProductStore() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [currentUser, setCurrentUser] = useState(null);
   const { addToCart } = useCart();
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
-    fetchProducts();
+    // Get current user from localStorage first
     const user = localStorage.getItem("user");
     if (user) {
       try {
-        setCurrentUser(JSON.parse(user));
+        const parsedUser = JSON.parse(user);
+        setCurrentUser(parsedUser);
       } catch (e) {
         console.error("Error parsing user data:", e);
+        setCurrentUser(null);
       }
+    } else {
+      setCurrentUser(null);
     }
+    setUserLoading(false); // User loading complete
   }, []);
+
+  useEffect(() => {
+    // Only fetch products after user loading is complete
+    if (!userLoading) {
+      fetchProducts();
+    }
+  }, [currentUser, userLoading]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -35,16 +49,39 @@ export default function ProductStore() {
     } else {
       const productsData = data || [];
       console.log("Fetched products:", productsData);
+      
+      // Filter out current seller's own products
+      let filteredProducts = productsData;
+      if (currentUser && currentUser.role === "seller") {
+        filteredProducts = productsData.filter(product => {
+          const productSellerId = product.sellerId?.toString() || product.sellerId;
+          const currentSellerId = currentUser._id?.toString() || currentUser._id;
+          
+          // Exclude products that belong to the current seller
+          const isOwnProduct = productSellerId === currentSellerId;
+          
+          console.log(`Product "${product.name}":`, {
+            productSellerId,
+            currentSellerId,
+            isOwnProduct,
+            willShow: !isOwnProduct
+          });
+          
+          return !isOwnProduct;
+        });
+        console.log("Filtered products for seller (excluding own):", filteredProducts);
+      }
+      
       // Log image paths for debugging
-      productsData.forEach(product => {
-        if (product.image) {
-          const imageUrl = product.image.startsWith("http") ? product.image : `${API_BASE_URL}${product.image}`;
-          console.log(`Product "${product.name}" image path:`, product.image, "Full URL:", imageUrl);
+      filteredProducts.forEach(product => {
+        if (product.images && product.images.length > 0) {
+          const imageUrl = product.images[0].startsWith("http") ? product.images[0] : `${STATIC_BASE_URL}${product.images[0]}`;
+          console.log(`Product "${product.name}" image path:`, product.images[0], "Full URL:", imageUrl);
         } else {
           console.log(`Product "${product.name}" has no image`);
         }
       });
-      setProducts(productsData);
+      setProducts(filteredProducts);
     }
     
     setLoading(false);
@@ -76,11 +113,13 @@ export default function ProductStore() {
     return type === "seed" ? "#4caf50" : "#ff9800";
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="loading-spinner"></div>
-        <p style={{ textAlign: "center", color: "var(--text-secondary)" }}>Loading products...</p>
+        <p style={{ textAlign: "center", color: "var(--text-secondary)" }}>
+          {userLoading ? "Loading user information..." : "Loading products..."}
+        </p>
       </div>
     );
   }
@@ -89,7 +128,12 @@ export default function ProductStore() {
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
         <h1>🛒 Product Store</h1>
-        <p>Browse seeds and pesticides for your crops</p>
+        <p>
+          {currentUser?.role === "seller" 
+            ? "Browse products from other sellers (your own products are hidden)" 
+            : "Browse seeds and pesticides for your crops"
+          }
+        </p>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -126,8 +170,18 @@ export default function ProductStore() {
       {filteredProducts.length === 0 ? (
         <div className="empty-state card">
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>🛒</div>
-          <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>No products available</h3>
-          <p style={{ color: "var(--text-secondary)" }}>Check back later for new products</p>
+          <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>
+            {currentUser?.role === "seller" 
+              ? "No products from other sellers available" 
+              : "No products available"
+            }
+          </h3>
+          <p style={{ color: "var(--text-secondary)" }}>
+            {currentUser?.role === "seller" 
+              ? "Other sellers haven't added any products yet. You can add your own products from your dashboard." 
+              : "Check back later for new products"
+            }
+          </p>
         </div>
       ) : (
         <div className="grid grid-3">
@@ -151,9 +205,9 @@ export default function ProductStore() {
                     border: "1px solid var(--border)",
                     position: "relative"
                   }}>
-                    {product.image && product.image.trim() ? (
+                    {product.images && product.images.length > 0 && product.images[0].trim() ? (
                       <img 
-                        src={product.image.startsWith("http") ? product.image : `${API_BASE_URL}${product.image}`} 
+                        src={product.images[0].startsWith("http") ? product.images[0] : `${STATIC_BASE_URL}${product.images[0]}`} 
                         alt={product.name || "Product"} 
                         style={{ 
                           width: "100%", 
@@ -162,24 +216,22 @@ export default function ProductStore() {
                           display: "block"
                         }}
                         onError={(e) => {
-                          console.error("Failed to load product image:", product.image, "Full URL:", `${API_BASE_URL}${product.image}`);
+                          console.error("Failed to load product image:", product.images[0], "Full URL:", `${STATIC_BASE_URL}${product.images[0]}`);
                           // Hide the broken image and show fallback
                           e.target.style.display = "none";
                           const parent = e.target.parentElement;
-                          if (parent && !parent.querySelector(".product-fallback")) {
-                            const fallback = document.createElement("div");
-                            fallback.className = "product-fallback";
-                            const icon = product.type === "seed" ? "🌱" : "🧪";
-                            const bgColor = product.type === "seed" 
-                              ? "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)"
-                              : "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)";
-                            fallback.style.cssText = `width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; font-size: 64px; position: absolute; top: 0; left: 0;`;
-                            fallback.textContent = icon;
-                            parent.appendChild(fallback);
+                          if (parent) {
+                            parent.style.background = "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)";
+                            parent.style.display = "flex";
+                            parent.style.alignItems = "center";
+                            parent.style.justifyContent = "center";
+                            parent.style.color = "white";
+                            parent.style.fontSize = "64px";
+                            parent.innerHTML = "📦";
                           }
                         }}
                         onLoad={() => {
-                          console.log("Product image loaded successfully:", product.image);
+                          console.log("Product image loaded successfully:", product.images[0]);
                         }}
                       />
                     ) : (
@@ -228,8 +280,8 @@ export default function ProductStore() {
                   </div>
 
                   <h3 style={{
-                    marginBottom: "8px",
-                    fontSize: "20px",
+                    margin: "0",
+                    fontSize: "16px",
                     color: "var(--text-primary)",
                     fontWeight: "600"
                   }}>
@@ -295,9 +347,15 @@ export default function ProductStore() {
                     }}>
                       Your Product
                     </span>
-                  ) : currentUser && currentUser.role === "buyer" ? (
+                  ) : currentUser && (currentUser.role === "buyer" || currentUser.role === "farmer") ? (
                     <button
-                      onClick={() => addToCart({ ...product, type: product.type })}
+                      onClick={() => {
+                        if (currentUser.role === "seller") {
+                          alert("Sellers cannot buy products. You can only add and sell your own products.");
+                          return;
+                        }
+                        addToCart({ ...product, type: product.type });
+                      }}
                       className="btn btn-primary"
                       disabled={product.stock !== undefined && product.stock !== null && product.stock <= 0}
                       style={{ 
@@ -309,6 +367,15 @@ export default function ProductStore() {
                     >
                       {(product.stock !== undefined && product.stock !== null && product.stock <= 0) ? "Out of Stock" : "Add to Cart"}
                     </button>
+                  ) : currentUser && currentUser.role === "seller" ? (
+                    <span style={{
+                      padding: "10px 20px",
+                      fontSize: "14px",
+                      color: "var(--text-secondary)",
+                      fontStyle: "italic"
+                    }}>
+                      View Only
+                    </span>
                   ) : (
                     <button
                       onClick={() => {
