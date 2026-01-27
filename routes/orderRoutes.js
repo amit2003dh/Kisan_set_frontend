@@ -22,6 +22,8 @@ router.post("/create", authMiddleware, async (req, res) => {
     
     const { itemId, itemType, quantity = 1, price, deliveryAddress, paymentMethod, buyerId: bodyBuyerId } = req.body;
 
+    console.log("🔍 Extracted values:", { itemId, itemType, quantity, price, deliveryAddress, paymentMethod, bodyBuyerId });
+
     // Use buyerId from body if provided, otherwise use from auth
     const finalBuyerId = bodyBuyerId || req.userId;
     console.log("🔍 Final buyer ID:", finalBuyerId);
@@ -144,60 +146,48 @@ router.post("/create", authMiddleware, async (req, res) => {
       }]
     });
 
-    // If this is a crop purchase, also create a crop_sale order for the seller
-    if (itemType === "crop") {
-      const sellerOrder = await Order.create({
-        buyerId: finalBuyerId,
-        sellerId,
-        orderType: "crop_sale",
-        items: [{
-          itemId,
-          itemType,
-          name: req.body.name || "Item",
-          quantity,
-          price: finalPrice
-        }],
-        total: quantity * finalPrice,
-        status: "Confirmed",
-        paymentMethod: paymentMethod || "COD",
-        deliveryInfo: {
-          deliveryAddress,
-          pickupAddress: pickupAddress,
-          currentLocation: pickupAddress ? {
-            lat: pickupAddress.lat || 0,
-            lng: pickupAddress.lng || 0
-          } : { lat: 0, lng: 0 }
-        },
-        orderTimeline: [{
-          status: "Confirmed",
-          timestamp: new Date()
-        }]
-      });
-      
-      console.log("✅ Created seller crop_sale order:", sellerOrder._id);
-    }
+    console.log("✅ Order created successfully:", order._id);
 
     // Decrease quantity/stock after successful order creation
+    console.log("🔍 Checking itemType for quantity decrease:", { itemType, itemId });
     if (itemType === "crop") {
       console.log("🌾 Decreasing crop quantity:", { itemId, quantity });
-      await Crop.findByIdAndUpdate(itemId, { 
-        $inc: { 
-          quantity: -quantity,
-          "salesStats.totalSold": quantity,
-          "salesStats.totalRevenue": quantity * finalPrice
-        }
-      });
-      console.log("✅ Crop quantity and sales stats updated successfully");
+      console.log("🌾 Current crop before update:");
+      const currentCrop = await Crop.findById(itemId);
+      console.log("🌾 Crop details:", { id: currentCrop._id, name: currentCrop.name, currentQuantity: currentCrop.quantity });
+      
+      try {
+        await Crop.findByIdAndUpdate(itemId, { 
+          $inc: { 
+            quantity: -quantity,
+            "salesStats.totalSold": quantity,
+            "salesStats.totalRevenue": quantity * finalPrice
+          }
+        });
+        
+        console.log("✅ Crop quantity and sales stats updated successfully");
+        const updatedCrop = await Crop.findById(itemId);
+        console.log("🌾 Updated crop details:", { id: updatedCrop._id, name: updatedCrop.name, newQuantity: updatedCrop.quantity });
+      } catch (cropError) {
+        console.error("❌ Error updating crop quantity:", cropError);
+        console.error("❌ Crop error details:", cropError.message);
+      }
     } else {
-      console.log("📦 Decreasing product stock:", { itemId, quantity });
-      await Product.findByIdAndUpdate(itemId, { 
-        $inc: { 
-          stock: -quantity,
-          "salesStats.totalSold": quantity,
-          "salesStats.totalRevenue": quantity * finalPrice
-        }
-      });
-      console.log("✅ Product stock and sales stats updated successfully");
+      console.log("🔍 itemType is not 'crop', processing as product. itemType:", itemType);
+      try {
+        console.log("📦 Decreasing product stock:", { itemId, quantity });
+        await Product.findByIdAndUpdate(itemId, { 
+          $inc: { 
+            stock: -quantity,
+            "salesStats.totalSold": quantity,
+            "salesStats.totalRevenue": quantity * finalPrice
+          }
+        });
+        console.log("✅ Product stock and sales stats updated successfully");
+      } catch (productError) {
+        console.error("❌ Error updating product stock:", productError);
+        console.error("❌ Product error details:", productError.message);
+      }
     }
 
     console.log("✅ Order created successfully:", order._id);
@@ -212,11 +202,17 @@ router.post("/create", authMiddleware, async (req, res) => {
       pickupLocation: order.deliveryInfo.pickupAddress
     });
 
-    await Delivery.create({
+    const delivery = new Delivery({
       orderId: order._id,
       status: "Assigned",
-      destination: deliveryAddress
+      destination: deliveryAddress,
+      currentLocation: {
+        lat: order.deliveryInfo.pickupAddress?.lat || 0,
+        lng: order.deliveryInfo.pickupAddress?.lng || 0
+      }
     });
+
+    await delivery.save();
 
     console.log("✅ Delivery created for order:", order._id);
 
@@ -249,6 +245,9 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
     
     const { items, deliveryAddress, paymentMethod, buyerId: bodyBuyerId } = req.body;
     
+    console.log("🔍 Extracted values:", { items, deliveryAddress, paymentMethod, bodyBuyerId });
+    console.log("🔍 Items count:", items?.length);
+
     // Use buyerId from body if provided, otherwise use from auth
     const finalBuyerId = bodyBuyerId || req.userId;
     console.log("🔍 Final buyer ID:", finalBuyerId);
@@ -264,19 +263,36 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
 
     console.log("📦 Processing", items.length, "cart items");
 
+    // Group items by the same product/crop to create single orders
+    const groupedItems = {};
+    
+    for (const item of items) {
+      const key = `${item.type}_${item._id}`;
+      if (!groupedItems[key]) {
+        groupedItems[key] = {
+          ...item,
+          totalQuantity: 0
+        };
+      }
+      groupedItems[key].totalQuantity += item.quantity;
+    }
+
+    console.log("🔄 Grouped items:", Object.keys(groupedItems).length, "unique items");
+    console.log("🔍 Grouped items details:", groupedItems);
+
     const orders = [];
 
-    for (const item of items) {
-      console.log("🔄 Processing item:", item);
+    for (const [key, groupedItem] of Object.entries(groupedItems)) {
+      console.log("🔄 Processing grouped item:", groupedItem);
       
       let sellerId;
       let pickupAddress;
       let actualPrice; // Get actual price from product/crop
       let availableQuantity; // Get available quantity for decrease
 
-      if (item.type === "crop") {
-        console.log("🌾 Looking up crop:", item._id);
-        const crop = await Crop.findById(item._id);
+      if (groupedItem.type === "crop") {
+        console.log("🌾 Looking up crop:", groupedItem._id);
+        const crop = await Crop.findById(groupedItem._id);
         sellerId = crop?.sellerId;
         pickupAddress = crop?.location; // Get pickup location from crop
         actualPrice = crop?.price; // Get actual price from crop
@@ -286,9 +302,10 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
         console.log("🌾 Pickup location:", pickupAddress);
         console.log("🌾 Actual price:", actualPrice);
         console.log("🌾 Available quantity:", availableQuantity);
+        console.log("🌾 Total requested quantity:", groupedItem.totalQuantity);
       } else {
-        console.log("📦 Looking up product:", item._id);
-        const product = await Product.findById(item._id);
+        console.log("📦 Looking up product:", groupedItem._id);
+        const product = await Product.findById(groupedItem._id);
         sellerId = product?.sellerId;
         pickupAddress = product?.location; // Get pickup location from product
         actualPrice = product?.price; // Get actual price from product
@@ -298,39 +315,40 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
         console.log("📦 Pickup location:", pickupAddress);
         console.log("📦 Actual price:", actualPrice);
         console.log("📦 Available stock:", availableQuantity);
+        console.log("📦 Total requested quantity:", groupedItem.totalQuantity);
       }
 
       // Use actual price from product/crop instead of cart price
-      const finalPrice = actualPrice || item.price;
+      const finalPrice = actualPrice || groupedItem.price;
       console.log("🔍 Final price used for item:", finalPrice);
 
       // Check if enough quantity is available
-      if (availableQuantity !== undefined && availableQuantity < item.quantity) {
+      if (availableQuantity !== undefined && availableQuantity < groupedItem.totalQuantity) {
         console.error("❌ Insufficient quantity available for item:", {
-          itemId: item._id,
-          requested: item.quantity,
+          itemId: groupedItem._id,
+          requested: groupedItem.totalQuantity,
           available: availableQuantity
         });
         continue; // Skip this item but continue with others
       }
 
       if (!sellerId) {
-        console.error("❌ Seller not found for item:", item._id);
+        console.error("❌ Seller not found for item:", groupedItem._id);
         continue; // Skip this item but continue with others
       }
 
-      console.log("✅ Creating order for item:", {
+      console.log("✅ Creating order for grouped item:", {
         buyerId: finalBuyerId,
         sellerId,
-        orderType: item.type === "crop" ? "crop_purchase" : "product_purchase",
+        orderType: groupedItem.type === "crop" ? "crop_purchase" : "product_purchase",
         items: [{
-          itemId: item._id,
-          itemType: item.type,
-          name: item.name,
-          quantity: item.quantity,
+          itemId: groupedItem._id,
+          itemType: groupedItem.type,
+          name: groupedItem.name,
+          quantity: groupedItem.totalQuantity, // Use total quantity
           price: finalPrice // Use actual price from product/crop
         }],
-        total: item.quantity * finalPrice, // Use actual price for total
+        total: groupedItem.totalQuantity * finalPrice, // Use total quantity for total
         status: "Confirmed",
         paymentMethod: paymentMethod || "COD",
         deliveryInfo: {
@@ -350,15 +368,15 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
       const order = await Order.create({
         buyerId: finalBuyerId,
         sellerId,
-        orderType: item.type === "crop" ? "crop_purchase" : "product_purchase",
+        orderType: groupedItem.type === "crop" ? "crop_purchase" : "product_purchase",
         items: [{
-          itemId: item._id,
-          itemType: item.type,
-          name: item.name,
-          quantity: item.quantity,
+          itemId: groupedItem._id,
+          itemType: groupedItem.type,
+          name: groupedItem.name,
+          quantity: groupedItem.totalQuantity, // Use total quantity
           price: finalPrice // Use actual price from product/crop
         }],
-        total: item.quantity * finalPrice, // Use actual price for total
+        total: groupedItem.totalQuantity * finalPrice, // Use total quantity for total
         status: "Confirmed",
         paymentMethod: paymentMethod || "COD",
         deliveryInfo: {
@@ -375,73 +393,69 @@ router.post("/create-from-cart", authMiddleware, async (req, res) => {
         }]
       });
 
-      // If this is a crop purchase, also create a crop_sale order for the seller
-      if (item.type === "crop") {
-        const sellerOrder = await Order.create({
-          buyerId: finalBuyerId,
-          sellerId,
-          orderType: "crop_sale",
-          items: [{
-            itemId: item._id,
-            itemType: item.type,
-            name: item.name,
-            quantity: item.quantity,
-            price: finalPrice
-          }],
-          total: item.quantity * finalPrice,
-          status: "Confirmed",
-          paymentMethod: paymentMethod || "COD",
-          deliveryInfo: {
-            deliveryAddress,
-            pickupAddress: pickupAddress,
-            currentLocation: pickupAddress ? {
-              lat: pickupAddress.lat || 0,
-              lng: pickupAddress.lng || 0
-            } : { lat: 0, lng: 0 }
-          },
-          orderTimeline: [{
-            status: "Confirmed",
-            timestamp: new Date()
-          }]
-        });
-        
-        console.log("✅ Created seller crop_sale order from cart:", sellerOrder._id);
-      }
-
-      // Decrease quantity/stock after successful order creation
-      if (item.type === "crop") {
-        console.log("🌾 Decreasing crop quantity:", { itemId: item._id, quantity: item.quantity });
-        await Crop.findByIdAndUpdate(item._id, { 
-          $inc: { 
-            quantity: -item.quantity,
-            "salesStats.totalSold": item.quantity,
-            "salesStats.totalRevenue": item.quantity * finalPrice
-          }
-        });
-        console.log("✅ Crop quantity and sales stats updated successfully");
-      } else {
-        console.log("📦 Decreasing product stock:", { itemId: item._id, quantity: item.quantity });
-        await Product.findByIdAndUpdate(item._id, { 
-          $inc: { 
-            stock: -item.quantity,
-            "salesStats.totalSold": item.quantity,
-            "salesStats.totalRevenue": item.quantity * finalPrice
-          }
-        });
-        console.log("✅ Product stock and sales stats updated successfully");
-      }
-
       console.log("✅ Order created successfully:", order._id);
 
-      await Delivery.create({
+      const delivery = new Delivery({
         orderId: order._id,
         status: "Assigned",
-        destination: deliveryAddress
+        destination: deliveryAddress,
+        currentLocation: {
+          lat: pickupAddress?.lat || 0,
+          lng: pickupAddress?.lng || 0
+        }
       });
+      
+      await delivery.save();
 
       console.log("✅ Delivery created for order:", order._id);
 
       orders.push(order);
+    }
+
+    console.log("📦 Processing quantity/stock after successful order creation");
+    for (const [key, groupedItem] of Object.entries(groupedItems)) {
+      console.log("🔍 Checking groupedItem.type for quantity decrease:", { type: groupedItem.type, itemId: groupedItem._id });
+      if (groupedItem.type === "crop") {
+        console.log("🌾 Decreasing crop quantity:", { itemId: groupedItem._id, quantity: groupedItem.totalQuantity });
+        console.log("🌾 Current crop before update:");
+        const currentCrop = await Crop.findById(groupedItem._id);
+        console.log("🌾 Crop details:", { id: currentCrop._id, name: currentCrop.name, currentQuantity: currentCrop.quantity });
+        
+        try {
+          const itemPrice = groupedItem.price || 0;
+          await Crop.findByIdAndUpdate(groupedItem._id, { 
+            $inc: { 
+              quantity: -groupedItem.totalQuantity,
+              "salesStats.totalSold": groupedItem.totalQuantity,
+              "salesStats.totalRevenue": groupedItem.totalQuantity * itemPrice
+            }
+          });
+          
+          console.log("✅ Crop quantity and sales stats updated successfully");
+          const updatedCrop = await Crop.findById(groupedItem._id);
+          console.log("🌾 Updated crop details:", { id: updatedCrop._id, name: updatedCrop.name, newQuantity: updatedCrop.quantity });
+        } catch (cropError) {
+          console.error("❌ Error updating crop quantity in cart:", cropError);
+          console.error("❌ Cart crop error details:", cropError.message);
+        }
+      } else {
+        console.log("🔍 groupedItem.type is not 'crop', processing as product. groupedItem.type:", groupedItem.type);
+        try {
+          console.log("📦 Decreasing product stock:", { itemId: groupedItem._id, quantity: groupedItem.totalQuantity });
+          const itemPrice = groupedItem.price || 0;
+          await Product.findByIdAndUpdate(groupedItem._id, { 
+            $inc: { 
+              stock: -groupedItem.totalQuantity,
+              "salesStats.totalSold": groupedItem.totalQuantity,
+              "salesStats.totalRevenue": groupedItem.totalQuantity * itemPrice
+            }
+          });
+          console.log("✅ Product stock and sales stats updated successfully");
+        } catch (productError) {
+          console.error("❌ Error updating product stock in cart:", productError);
+          console.error("❌ Cart product error details:", productError.message);
+        }
+      }
     }
 
     console.log("📦 Total orders created:", orders.length);

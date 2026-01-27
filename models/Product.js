@@ -41,6 +41,12 @@ const productSchema = new mongoose.Schema({
     default: []
   },
 
+  // 🎯 Primary image index for display
+  primaryImageIndex: {
+    type: Number,
+    default: 0
+  },
+
   // 📝 Description & usage
   description: String,
   usageInstructions: String,
@@ -74,8 +80,14 @@ const productSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["Available", "Out of Stock", "Discontinued"],
+    enum: ["Available", "Reserved", "Out of Stock", "Discontinued"],
     default: "Available"
+  },
+
+  // ✅ Verification status
+  verified: {
+    type: Boolean,
+    default: false
   },
 
   // 📊 Sales stats (VERY IMPORTANT for dashboard)

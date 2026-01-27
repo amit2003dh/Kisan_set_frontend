@@ -6,6 +6,8 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const http = require("http");
 const { Server } = require("socket.io");
+const multer = require("multer");
+const path = require("path");
 
 // Import all models to ensure they are registered
 require("./models");
@@ -13,11 +15,26 @@ require("./models");
 const app = express();
 const server = http.createServer(app);
 
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
+
 app.use(express.json());
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:3000","https://kisan-set-frontend-71z4.vercel.app"], // Allow your frontend URL
-    credentials: true // Allow cookies/headers
+  origin: ["http://localhost:5173", "http://localhost:3000","https://kisan-set-frontend-71z4.vercel.app"], // Allow your frontend URL
+  credentials: true // Allow cookies/headers
 }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve uploaded files
 app.use("/uploads", express.static("uploads"));

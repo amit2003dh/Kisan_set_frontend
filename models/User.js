@@ -49,6 +49,15 @@ const userSchema = new mongoose.Schema({
   businessLocation: businessLocationSchema, // For farmers and sellers
   isVerified: { type: Boolean, default: false },
   verificationDocuments: [String], // URLs to verification docs
+  deliveryPartnerRegistration: {
+    hasApplied: { type: Boolean, default: false },
+    applicationDate: { type: Date },
+    applicationStatus: { 
+      type: String, 
+      enum: ["not_applied", "pending", "approved", "rejected"], 
+      default: "not_applied" 
+    }
+  },
   rating: { type: Number, default: 0, min: 0, max: 5 },
   totalReviews: { type: Number, default: 0 },
   preferences: {

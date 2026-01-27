@@ -39,10 +39,10 @@ const deliverySchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Update the updatedAt field on save
-deliverySchema.pre('save', function(next) {
-  this.updatedAt = new Date();
-  next();
-});
+// Note: Pre-save middleware temporarily removed to fix next() error
+// deliverySchema.pre('save', function(next) {
+//   this.updatedAt = new Date();
+//   next();
+// });
 
 module.exports = mongoose.model("Delivery", deliverySchema);

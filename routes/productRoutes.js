@@ -5,6 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const authMiddleware = require("../middleware/auth");
+const adminMiddleware = require("../middleware/admin");
 
 /* -------------------- MULTER CONFIG -------------------- */
 
@@ -46,9 +47,10 @@ router.post("/add", authMiddleware, upload.single("image"), async (req, res) => 
       type: req.body.type,
       price: Number(req.body.price),
       stock: Number(req.body.stock),
+      suitableCrops: req.body.crop ? [req.body.crop] : [], // Store suitable crops as array
       description: req.body.description,
       status: Number(req.body.stock) > 0 ? "Available" : "Out of Stock",
-      verified: false,
+      verified: false, // Always not verified
 
       location: req.body.location ? JSON.parse(req.body.location) : undefined,
       contactInfo: req.body.contactInfo
@@ -57,7 +59,7 @@ router.post("/add", authMiddleware, upload.single("image"), async (req, res) => 
     };
 
     if (req.file) {
-      productData.image = `/uploads/products/${req.file.filename}`;
+      productData.images = [`/uploads/products/${req.file.filename}`];
     }
 
     const product = new Product(productData);
@@ -112,64 +114,239 @@ router.get("/my-products", authMiddleware, async (req, res) => {
 
 /* -------------------- UPDATE PRODUCT -------------------- */
 
-router.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
-  const product = await Product.findOne({
-    _id: req.params.id,
-    sellerId: req.userId
-  });
+// Route for updates without image (JSON)
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    console.log("🔍 Updating product (JSON):", req.params.id);
+    console.log("🔍 Request body:", req.body);
+    
+    const product = await Product.findOne({
+      _id: req.params.id,
+      sellerId: req.userId
+    });
 
-  if (!product) {
-    return res.status(404).json({ error: "Product not found" });
-  }
-
-  const update = {
-    ...req.body,
-    price: req.body.price ? Number(req.body.price) : product.price,
-    stock: req.body.stock ? Number(req.body.stock) : product.stock,
-    status:
-      req.body.stock !== undefined
-        ? Number(req.body.stock) > 0
-          ? "Available"
-          : "Out of Stock"
-        : product.status
-  };
-
-  if (req.file) {
-    if (product.image) {
-      const old = product.image.replace("/uploads/", "uploads/");
-      if (fs.existsSync(old)) fs.unlinkSync(old);
+    if (!product) {
+      console.log("❌ Product not found");
+      return res.status(404).json({ error: "Product not found" });
     }
-    update.image = `/uploads/products/${req.file.filename}`;
+
+    console.log("🔍 Found product:", product);
+
+    // Handle JSON data
+    console.log("🔍 Processing JSON data");
+    let updateData = req.body;
+    
+    // Log images and primaryImageIndex specifically
+    console.log("🔍 Images in request:", updateData.images);
+    console.log("🔍 PrimaryImageIndex in request:", updateData.primaryImageIndex);
+    console.log("🔍 Type of PrimaryImageIndex:", typeof updateData.primaryImageIndex);
+    console.log("🔍 Current product images:", product.images);
+    console.log("🔍 Current product primaryImageIndex:", product.primaryImageIndex);
+    
+    // Ensure primaryImageIndex is a number
+    if (updateData.primaryImageIndex !== undefined) {
+      updateData.primaryImageIndex = Number(updateData.primaryImageIndex);
+      console.log("🔍 Converted PrimaryImageIndex to number:", updateData.primaryImageIndex);
+    }
+    
+    // Auto-update status based on stock
+    if (updateData.stock !== undefined) {
+      updateData.status = updateData.stock > 0 ? "Available" : "Out of Stock";
+    }
+
+    console.log("🔍 Final update object:", updateData);
+
+    const updated = await Product.findByIdAndUpdate(req.params.id, updateData, {
+      new: true
+    });
+
+    console.log("✅ Product updated successfully:", updated);
+    res.json(updated);
+  } catch (error) {
+    console.error("❌ Update product error:", error);
+    console.error("❌ Error stack:", error.stack);
+    res.status(500).json({ error: error.message });
   }
+});
 
-  if (req.body.location) update.location = JSON.parse(req.body.location);
-  if (req.body.contactInfo) update.contactInfo = JSON.parse(req.body.contactInfo);
+// Route for updates with image (FormData)
+router.put("/:id/with-image", authMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    console.log("🔍 Updating product (FormData):", req.params.id);
+    console.log("🔍 Request body:", req.body);
+    console.log("🔍 Request file:", req.file);
+    
+    const product = await Product.findOne({
+      _id: req.params.id,
+      sellerId: req.userId
+    });
 
-  const updated = await Product.findByIdAndUpdate(req.params.id, update, {
-    new: true
-  });
+    if (!product) {
+      console.log("❌ Product not found");
+      return res.status(404).json({ error: "Product not found" });
+    }
 
-  res.json(updated);
+    console.log("🔍 Found product:", product);
+
+    // Handle FormData
+    console.log("🔍 Processing FormData");
+    let updateData = { ...req.body };
+    
+    // Convert price and stock to numbers
+    if (updateData.price) updateData.price = Number(updateData.price);
+    if (updateData.stock) updateData.stock = Number(updateData.stock);
+    if (updateData.minimumOrder) updateData.minimumOrder = Number(updateData.minimumOrder);
+
+    // Auto-update status based on stock
+    if (updateData.stock !== undefined) {
+      updateData.status = updateData.stock > 0 ? "Available" : "Out of Stock";
+    }
+
+    if (req.file) {
+      console.log("🔍 Handling file upload");
+      // Handle images array - add new image to existing images array
+      const currentImages = product.images || [];
+      updateData.images = [...currentImages, `/uploads/products/${req.file.filename}`];
+      console.log("🔍 Updated images array with new file:", updateData.images);
+    } else {
+      // Only handle images array from FormData if no new file was uploaded
+      if (req.body.images) {
+        try {
+          updateData.images = JSON.parse(req.body.images);
+          console.log("🔍 Parsed images array (no new file):", updateData.images);
+        } catch (e) {
+          console.error("❌ Error parsing images:", e);
+        }
+      }
+    }
+
+    // Handle primaryImageIndex from FormData
+    if (req.body.primaryImageIndex !== undefined) {
+      updateData.primaryImageIndex = Number(req.body.primaryImageIndex);
+      console.log("🔍 Primary image index:", updateData.primaryImageIndex);
+    }
+
+    // Parse JSON fields if they exist
+    if (req.body.location && typeof req.body.location === 'string') {
+      try {
+        updateData.location = JSON.parse(req.body.location);
+        console.log("🔍 Parsed location:", updateData.location);
+      } catch (e) {
+        console.error("❌ Error parsing location:", e);
+      }
+    }
+    
+    if (req.body.contactInfo && typeof req.body.contactInfo === 'string') {
+      try {
+        updateData.contactInfo = JSON.parse(req.body.contactInfo);
+        console.log("🔍 Parsed contactInfo:", updateData.contactInfo);
+      } catch (e) {
+        console.error("❌ Error parsing contactInfo:", e);
+      }
+    }
+
+    // Handle suitableCrops array
+    if (req.body.suitableCrops) {
+      try {
+        if (typeof req.body.suitableCrops === 'string') {
+          updateData.suitableCrops = JSON.parse(req.body.suitableCrops);
+        }
+      } catch (e) {
+        console.error("❌ Error parsing suitableCrops:", e);
+      }
+    }
+
+    console.log("🔍 Final update object:", updateData);
+
+    const updated = await Product.findByIdAndUpdate(req.params.id, updateData, {
+      new: true
+    });
+
+    console.log("✅ Product updated successfully:", updated);
+    res.json(updated);
+  } catch (error) {
+    console.error("❌ Update product error:", error);
+    console.error("❌ Error stack:", error.stack);
+    // Delete uploaded file if error occurred
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /* -------------------- VERIFY / UNVERIFY PRODUCT -------------------- */
 
 router.put("/:id/status", authMiddleware, async (req, res) => {
-  const { verified } = req.body;
+  try {
+    const { status, verified } = req.body;
+    
+    const product = await Product.findOne({
+      _id: req.params.id,
+      sellerId: req.userId
+    });
 
-  const product = await Product.findOne({
-    _id: req.params.id,
-    sellerId: req.userId
-  });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
 
-  if (!product) {
-    return res.status(404).json({ error: "Product not found" });
+    // Handle verification changes
+    if (verified !== undefined) {
+      product.verified = Boolean(verified);
+      await product.save();
+      return res.json(product);
+    }
+
+    // Handle status changes (like crops)
+    if (status !== undefined) {
+      // Check if stock is zero for status changes
+      if (product.stock === 0 && status !== "Out of Stock") {
+        return res.status(400).json({
+          error: "Cannot change status",
+          message: "Cannot change status when stock is zero. Please update stock first."
+        });
+      }
+      
+      const updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        { status },
+        { new: true }
+      );
+      
+      return res.json(updatedProduct);
+    }
+
+    res.status(400).json({ error: "No valid update data provided" });
+  } catch (error) {
+    console.error("❌ Status update error:", error);
+    res.status(500).json({ error: error.message });
   }
+});
 
-  product.verified = Boolean(verified);
-  await product.save();
+/* -------------------- ADMIN VERIFY PRODUCT -------------------- */
 
-  res.json(product);
+router.put("/:id/verify", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { verified } = req.body;
+    
+    const product = await Product.findById(req.params.id);
+    
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    product.verified = Boolean(verified);
+    await product.save();
+    
+    res.json({
+      success: true,
+      message: `Product ${verified ? 'verified' : 'unverified'} successfully`,
+      product
+    });
+  } catch (error) {
+    console.error("Admin verification error:", error);
+    res.status(500).json({ error: "Failed to update verification status" });
+  }
 });
 
 /* -------------------- DELETE PRODUCT -------------------- */

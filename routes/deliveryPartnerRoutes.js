@@ -5,6 +5,20 @@ const Order = require("../models/Order");
 const Delivery = require("../models/Delivery");
 const mongoose = require("mongoose");
 const authMiddleware = require("../middleware/auth");
+const multer = require("multer");
+const path = require("path");
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/id-proofs/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Get available delivery partners for order assignment
 router.get("/available", authMiddleware, async (req, res) => {
@@ -662,5 +676,390 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const distance = R * c;
   return distance;
 }
+
+// Get delivery partner performance metrics
+router.get("/performance", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get delivery partner by user ID
+    const partner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!partner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "You are not registered as a delivery partner"
+      });
+    }
+
+    // Get delivery statistics
+    const Delivery = require("../models/Delivery");
+    const deliveries = await Delivery.find({ partnerId: partner._id });
+    
+    const totalDeliveries = deliveries.length;
+    const successfulDeliveries = deliveries.filter(d => d.status === "Delivered").length;
+    const successRate = totalDeliveries > 0 ? (successfulDeliveries / totalDeliveries) * 100 : 0;
+    
+    // Calculate average delivery time (in minutes)
+    let totalDeliveryTime = 0;
+    let deliveriesWithTime = 0;
+    
+    deliveries.forEach(delivery => {
+      if (delivery.pickedUpAt && delivery.deliveredAt) {
+        const pickupTime = new Date(delivery.pickedUpAt);
+        const deliveredTime = new Date(delivery.deliveredAt);
+        const diffInMinutes = (deliveredTime - pickupTime) / (1000 * 60);
+        totalDeliveryTime += diffInMinutes;
+        deliveriesWithTime++;
+      }
+    });
+    
+    const avgDeliveryTime = deliveriesWithTime > 0 ? Math.round(totalDeliveryTime / deliveriesWithTime) : 0;
+
+    res.json({
+      success: true,
+      performance: {
+        avgDeliveryTime,
+        successRate: Math.round(successRate * 10) / 10, // Round to 1 decimal place
+        totalDelivered: successfulDeliveries
+      }
+    });
+
+  } catch (error) {
+    console.error("Get performance error:", error);
+    res.status(500).json({
+      error: "Failed to fetch performance data",
+      message: error.message || "Failed to retrieve performance metrics"
+    });
+  }
+});
+
+// Get delivery partner earnings
+router.get("/earnings", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get delivery partner by user ID
+    const partner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!partner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "You are not registered as a delivery partner"
+      });
+    }
+
+    // Get completed deliveries with order details
+    const Delivery = require("../models/Delivery");
+    const deliveries = await Delivery.find({ 
+      partnerId: partner._id, 
+      status: "Delivered" 
+    }).populate('orderId');
+
+    let totalEarnings = 0;
+    let todayEarnings = 0;
+    let thisWeekEarnings = 0;
+    let thisMonthEarnings = 0;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(today.setDate(today.getDate() - today.getDay()));
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    deliveries.forEach(delivery => {
+      if (delivery.orderId && delivery.orderId.total) {
+        const deliveryFee = delivery.orderId.total * 0.1; // Assume 10% delivery fee
+        const deliveredAt = new Date(delivery.deliveredAt);
+        
+        totalEarnings += deliveryFee;
+        
+        if (deliveredAt >= today) {
+          todayEarnings += deliveryFee;
+        }
+        
+        if (deliveredAt >= weekStart) {
+          thisWeekEarnings += deliveryFee;
+        }
+        
+        if (deliveredAt >= monthStart) {
+          thisMonthEarnings += deliveryFee;
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      earnings: {
+        total: Math.round(totalEarnings),
+        today: Math.round(todayEarnings),
+        thisWeek: Math.round(thisWeekEarnings),
+        thisMonth: Math.round(thisMonthEarnings)
+      }
+    });
+
+  } catch (error) {
+    console.error("Get earnings error:", error);
+    res.status(500).json({
+      error: "Failed to fetch earnings data",
+      message: error.message || "Failed to retrieve earnings information"
+    });
+  }
+});
+
+// Register new delivery partner
+router.post("/register", authMiddleware, upload.fields([
+  { name: 'idProof.frontImage', maxCount: 1 },
+  { name: 'idProof.backImage', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    console.log("📝 DELIVERY PARTNER REGISTRATION - Starting registration");
+    console.log("🔍 Request body keys:", Object.keys(req.body));
+
+    // Parse form data
+    const formData = {};
+    const files = {};
+    
+    // Handle form data
+    Object.keys(req.body).forEach(key => {
+      if (key.includes(".")) {
+        const keys = key.split(".");
+        let current = formData;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!current[keys[i]]) {
+            current[keys[i]] = {};
+          }
+          current = current[keys[i]];
+        }
+        current[keys[keys.length - 1]] = req.body[key];
+      } else {
+        formData[key] = req.body[key];
+      }
+    });
+
+    // Handle files
+    if (req.files) {
+      Object.keys(req.files).forEach(key => {
+        if (req.files[key] && req.files[key].length > 0) {
+          files[key] = req.files[key][0];
+        }
+      });
+    }
+
+    console.log("🔍 Parsed form data:", formData);
+    console.log("🔍 Files:", Object.keys(files));
+
+    // Validate required fields
+    const requiredFields = ['name', 'email', 'phone', 'age', 'gender', 'vehicleType', 'vehicleNumber', 'licenseNumber'];
+    for (const field of requiredFields) {
+      if (!formData[field]) {
+        return res.status(400).json({
+          error: `Missing required field: ${field}`,
+          message: `Please provide ${field}`
+        });
+      }
+    }
+
+    // Check if user already exists
+    const User = require("../models/User");
+    const existingUser = await User.findOne({ 
+      $or: [{ email: formData.email }, { phone: formData.phone }] 
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: "User already exists",
+        message: "An account with this email or phone number already exists"
+      });
+    }
+
+    // Check if delivery partner already registered
+    const existingPartner = await DeliveryPartner.findOne({ 
+      $or: [{ email: formData.email }, { phone: formData.phone }] 
+    });
+
+    if (existingPartner) {
+      return res.status(400).json({
+        error: "Application already submitted",
+        message: "You have already submitted an application. Please wait for admin verification."
+      });
+    }
+
+    // Parse JSON fields
+    let serviceArea, address, idProof, bankAccount, emergencyContact, availability;
+    try {
+      serviceArea = JSON.parse(formData.serviceArea || '{}');
+      address = JSON.parse(formData.address || '{}');
+      idProof = JSON.parse(formData.idProof || '{}');
+      bankAccount = JSON.parse(formData.bankAccount || '{}');
+      emergencyContact = JSON.parse(formData.emergencyContact || '{}');
+      availability = JSON.parse(formData.availability || '{}');
+    } catch (error) {
+      console.error("❌ Error parsing JSON fields:", error);
+      return res.status(400).json({
+        error: "Invalid data format",
+        message: "Please check your form data and try again"
+      });
+    }
+
+    // Create user account
+    const newUser = new User({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      role: "delivery_partner",
+      isVerified: false, // Will be verified by admin
+      verificationDocuments: [],
+      deliveryPartnerRegistration: {
+        hasApplied: true,
+        applicationDate: new Date(),
+        applicationStatus: "pending"
+      }
+    });
+
+    const savedUser = await newUser.save();
+    console.log("✅ User account created:", savedUser._id);
+
+    // Create delivery partner application
+    const newPartner = new DeliveryPartner({
+      userId: savedUser._id,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      age: parseInt(formData.age),
+      gender: formData.gender,
+      vehicleType: formData.vehicleType,
+      vehicleNumber: formData.vehicleNumber,
+      licenseNumber: formData.licenseNumber,
+      experience: parseInt(formData.experience) || 0,
+      serviceArea: {
+        cities: serviceArea.cities || [],
+        maxDistance: parseInt(serviceArea.maxDistance) || 10
+      },
+      address: {
+        street: address.street || "",
+        city: address.city || "",
+        state: address.state || "",
+        pincode: address.pincode || "",
+        lat: parseFloat(address.lat) || 0,
+        lng: parseFloat(address.lng) || 0
+      },
+      idProof: {
+        type: idProof.type || "aadhaar",
+        number: idProof.number || "",
+        frontImage: files['idProof.frontImage'] ? files['idProof.frontImage'].filename : "",
+        backImage: files['idProof.backImage'] ? files['idProof.backImage'].filename : ""
+      },
+      bankAccount: {
+        accountNumber: bankAccount.accountNumber || "",
+        accountHolderName: bankAccount.accountHolderName || "",
+        bankName: bankAccount.bankName || "",
+        ifscCode: bankAccount.ifscCode || "",
+        branchName: bankAccount.branchName || ""
+      },
+      emergencyContact: {
+        name: emergencyContact.name || "",
+        phone: emergencyContact.phone || "",
+        relationship: emergencyContact.relationship || ""
+      },
+      availability: {
+        monday: availability.monday !== false,
+        tuesday: availability.tuesday !== false,
+        wednesday: availability.wednesday !== false,
+        thursday: availability.thursday !== false,
+        friday: availability.friday !== false,
+        saturday: availability.saturday !== false,
+        sunday: availability.sunday !== false,
+        startTime: availability.startTime || "09:00",
+        endTime: availability.endTime || "18:00"
+      },
+      status: "pending", // Pending admin verification
+      isOnline: false,
+      currentLocation: {
+        lat: parseFloat(address.lat) || 0,
+        lng: parseFloat(address.lng) || 0,
+        lastUpdated: new Date()
+      },
+      deliveryStats: {
+        totalDeliveries: 0,
+        successfulDeliveries: 0,
+        averageRating: 0,
+        totalEarnings: 0
+      },
+      registrationDate: new Date(),
+      lastSeen: new Date()
+    });
+
+    const savedPartner = await newPartner.save();
+    console.log("✅ Delivery partner application created:", savedPartner._id);
+
+    // Send notification to admin (you can implement email notification here)
+    console.log("📧 Sending notification to admin for verification");
+
+    res.status(201).json({
+      success: true,
+      message: "Registration submitted successfully! Your application is now pending admin verification.",
+      applicationId: savedPartner._id,
+      status: "pending"
+    });
+
+  } catch (error) {
+    console.error("❌ REGISTRATION ERROR:", error);
+    console.error("❌ Error name:", error.name);
+    console.error("❌ Error message:", error.message);
+    
+    res.status(500).json({
+      error: "Registration failed",
+      message: error.message || "Failed to submit registration. Please try again."
+    });
+  }
+});
+
+// Get delivery partner current location
+router.get("/location", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get delivery partner by user ID
+    const partner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!partner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "You are not registered as a delivery partner"
+      });
+    }
+
+    res.json({
+      success: true,
+      location: partner.currentLocation || { lat: 0, lng: 0 }
+    });
+
+  } catch (error) {
+    console.error("Get location error:", error);
+    res.status(500).json({
+      error: "Failed to fetch location",
+      message: error.message || "Failed to retrieve current location"
+    });
+  }
+});
 
 module.exports = router;

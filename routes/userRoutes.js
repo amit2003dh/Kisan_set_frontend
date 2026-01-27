@@ -171,7 +171,14 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       token,
-      user: user.toJSON()
+      user: user.toJSON(),
+      deliveryPartnerStatus: {
+        hasApplied: user.deliveryPartnerRegistration?.hasApplied || false,
+        applicationStatus: user.deliveryPartnerRegistration?.applicationStatus || "not_applied",
+        applicationDate: user.deliveryPartnerRegistration?.applicationDate,
+        isVerified: user.isVerified,
+        role: user.role
+      }
     });
   } catch (error) {
     console.error("Login error:", error);

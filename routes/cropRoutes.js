@@ -6,6 +6,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const authMiddleware = require("../middleware/auth");
+const adminMiddleware = require("../middleware/admin");
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
@@ -51,9 +52,30 @@ router.post("/add", authMiddleware, upload.single("image"), async (req, res) => 
       type: "crop"  
     };
 
-    // Add image path if uploaded
+    // Handle images array - if image file is uploaded, add it to images array
+    let imagesArray = [];
     if (req.file) {
-      cropData.image = `/uploads/crops/${req.file.filename}`;
+      imagesArray.push(`/uploads/crops/${req.file.filename}`);
+    }
+    
+    // Parse images array from FormData if sent
+    if (req.body.images) {
+      try {
+        const parsedImages = JSON.parse(req.body.images);
+        if (Array.isArray(parsedImages)) {
+          imagesArray = [...imagesArray, ...parsedImages];
+        }
+      } catch (e) {
+        console.error("Error parsing images array:", e);
+      }
+    }
+    
+    // Set the images array
+    cropData.images = imagesArray;
+    
+    // Handle primaryImageIndex
+    if (req.body.primaryImageIndex) {
+      cropData.primaryImageIndex = parseInt(req.body.primaryImageIndex) || 0;
     }
 
     // Parse quantity and price as numbers
@@ -89,7 +111,7 @@ router.post("/add", authMiddleware, upload.single("image"), async (req, res) => 
     }
     res.status(500).json({
       error: "Failed to add crop",
-      message: error.message || "Failed to save crop"
+      message: error.message
     });
   }
 });
@@ -163,13 +185,27 @@ router.put("/:id", authMiddleware, upload.single("image"), async (req, res) => {
 
     const updateData = { ...req.body };
     
+    // Handle images array and primary image index
+    if (req.body.images) {
+      try {
+        updateData.images = JSON.parse(req.body.images);
+        console.log("🔍 Parsed images array:", updateData.images);
+      } catch (e) {
+        console.error("❌ Error parsing images:", e);
+      }
+    }
+    
+    if (req.body.primaryImageIndex !== undefined) {
+      updateData.primaryImageIndex = Number(req.body.primaryImageIndex);
+      console.log("🔍 Primary image index:", updateData.primaryImageIndex);
+    }
+    
     // Add image path if uploaded
     if (req.file) {
-      // Delete old image if exists
-      if (crop.image && fs.existsSync(crop.image.replace('/uploads/', 'uploads/'))) {
-        fs.unlinkSync(crop.image.replace('/uploads/', 'uploads/'));
-      }
-      updateData.image = `/uploads/crops/${req.file.filename}`;
+      // Handle images array - add new image to existing images array
+      const currentImages = crop.images || [];
+      updateData.images = [...currentImages, `/uploads/crops/${req.file.filename}`];
+      console.log("🔍 Updated images array:", updateData.images);
     }
 
     // Parse quantity and price as numbers
@@ -440,6 +476,32 @@ router.put("/:id/decrease-quantity", authMiddleware, async (req, res) => {
       error: "Failed to decrease quantity",
       message: error.message || "Failed to decrease crop quantity"
     });
+  }
+});
+
+/* -------------------- ADMIN VERIFY CROP -------------------- */
+
+router.put("/:id/verify", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { verified } = req.body;
+    
+    const crop = await Crop.findById(req.params.id);
+    
+    if (!crop) {
+      return res.status(404).json({ error: "Crop not found" });
+    }
+    
+    crop.verified = Boolean(verified);
+    await crop.save();
+    
+    res.json({
+      success: true,
+      message: `Crop ${verified ? 'verified' : 'unverified'} successfully`,
+      crop
+    });
+  } catch (error) {
+    console.error("Admin verification error:", error);
+    res.status(500).json({ error: "Failed to update verification status" });
   }
 });
 
