@@ -10,6 +10,7 @@ const Cart = require('./Cart');
 const ProductTracker = require('./ProductTracker');
 const CustomerChat = require('./CustomerChat');
 const SellerAnalytics = require('./SellerAnalytics');
+const Admin = require('./Admin');
 
 module.exports = {
   User,
@@ -20,5 +21,6 @@ module.exports = {
   Cart,
   ProductTracker,
   CustomerChat,
-  SellerAnalytics
+  SellerAnalytics,
+  Admin
 };

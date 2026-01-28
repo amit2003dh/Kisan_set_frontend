@@ -58,6 +58,12 @@ const deliveryPartnerSchema = new mongoose.Schema({
     accountNumber: String,
     ifscCode: String,
     accountHolderName: String
+  },
+  // ✅ Verification status
+  isVerified: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending"
   }
 }, {
   timestamps: true

@@ -3,6 +3,7 @@ const router = require("express").Router();
 const DeliveryPartner = require("../models/DeliveryPartner");
 const Order = require("../models/Order");
 const Delivery = require("../models/Delivery");
+const User = require("../models/User");
 const mongoose = require("mongoose");
 const authMiddleware = require("../middleware/auth");
 const multer = require("multer");
@@ -387,12 +388,58 @@ router.put("/status", authMiddleware, async (req, res) => {
     const { status, isOnline } = req.body;
 
     // Get delivery partner by user ID
-    const partner = await DeliveryPartner.findOne({ userId: req.userId });
+    let partner = await DeliveryPartner.findOne({ userId: req.userId });
+    
+    // If no delivery partner record exists but user is approved, create one
     if (!partner) {
-      return res.status(404).json({
-        error: "Delivery partner not found",
-        message: "You are not registered as a delivery partner"
-      });
+      const user = await User.findById(req.userId);
+      if (user && user.role === "delivery_partner" && user.deliveryPartnerRegistration?.applicationStatus === "approved") {
+        console.log("🆕 Creating delivery partner record for approved user");
+        partner = new DeliveryPartner({
+          userId: user._id,
+          partnerId: `DP${Date.now().toString().slice(-6)}`,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          vehicle: {
+            type: "bike",
+            number: "TBD",
+            capacity: 50
+          },
+          currentLocation: {
+            lat: 0,
+            lng: 0,
+            lastUpdated: new Date()
+          },
+          status: "offline",
+          isOnline: false,
+          serviceArea: { cities: [], maxDistance: 50 },
+          documents: {
+            drivingLicense: "",
+            vehicleInsurance: "",
+            policeVerification: "",
+            aadharCard: ""
+          },
+          bankDetails: {
+            accountNumber: "",
+            ifscCode: "",
+            accountHolderName: ""
+          },
+          workingHours: {
+            start: "09:00",
+            end: "18:00",
+            workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"]
+          }
+        });
+        
+        partner = await partner.save();
+        console.log("✅ Delivery partner record created:", partner._id);
+      } else {
+        return res.status(404).json({
+          error: "Delivery partner not found",
+          message: "You are not registered as a delivery partner"
+        });
+      }
     }
 
     const updateData = {
@@ -814,11 +861,11 @@ router.get("/earnings", authMiddleware, async (req, res) => {
   }
 });
 
-// Register new delivery partner
-router.post("/register", authMiddleware, upload.fields([
+// Register new delivery partner application
+router.post("/register", upload.fields([
   { name: 'idProof.frontImage', maxCount: 1 },
   { name: 'idProof.backImage', maxCount: 1 }
-]), async (req, res) => {
+]), authMiddleware, async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({
@@ -827,8 +874,35 @@ router.post("/register", authMiddleware, upload.fields([
       });
     }
 
-    console.log("📝 DELIVERY PARTNER REGISTRATION - Starting registration");
+    console.log("📝 DELIVERY PARTNER APPLICATION - Starting application");
     console.log("🔍 Request body keys:", Object.keys(req.body));
+    console.log("👤 User ID from auth:", req.userId);
+
+    // Get authenticated user
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+        message: "Please login to submit a delivery partner application"
+      });
+    }
+
+    console.log("👤 Found user:", user.email);
+
+    // Check if user already has an application
+    if (user.deliveryPartnerRegistration.hasApplied && user.deliveryPartnerRegistration.applicationStatus !== "rejected") {
+      return res.status(400).json({
+        error: "Application already exists",
+        message: `Your application is currently ${user.deliveryPartnerRegistration.applicationStatus}`
+      });
+    }
+
+    // If user is reapplying after rejection, update existing delivery partner record
+    let existingDeliveryPartner = null;
+    if (user.deliveryPartnerRegistration.hasApplied && user.deliveryPartnerRegistration.applicationStatus === "rejected") {
+      console.log("🔄 User is reapplying after rejection, updating existing record");
+      existingDeliveryPartner = await DeliveryPartner.findOne({ userId: user._id });
+    }
 
     // Parse form data
     const formData = {};
@@ -851,7 +925,7 @@ router.post("/register", authMiddleware, upload.fields([
       }
     });
 
-    // Handle files
+    // Handle uploaded files
     if (req.files) {
       Object.keys(req.files).forEach(key => {
         if (req.files[key] && req.files[key].length > 0) {
@@ -861,160 +935,113 @@ router.post("/register", authMiddleware, upload.fields([
     }
 
     console.log("🔍 Parsed form data:", formData);
-    console.log("🔍 Files:", Object.keys(files));
+    console.log("🔍 Uploaded files:", Object.keys(files));
 
-    // Validate required fields
-    const requiredFields = ['name', 'email', 'phone', 'age', 'gender', 'vehicleType', 'vehicleNumber', 'licenseNumber'];
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        return res.status(400).json({
-          error: `Missing required field: ${field}`,
-          message: `Please provide ${field}`
-        });
-      }
-    }
+    // Update user role and delivery partner registration
+    user.role = "delivery_partner";
+    user.deliveryPartnerRegistration = {
+      hasApplied: true,
+      applicationDate: new Date(),
+      applicationStatus: "pending"
+    };
 
-    // Check if user already exists
-    const User = require("../models/User");
-    const existingUser = await User.findOne({ 
-      $or: [{ email: formData.email }, { phone: formData.phone }] 
-    });
+    const savedUser = await user.save();
+    console.log("✅ User updated with delivery partner application:", savedUser._id);
 
-    if (existingUser) {
-      return res.status(400).json({
-        error: "User already exists",
-        message: "An account with this email or phone number already exists"
+    // Create or update delivery partner record
+    let savedPartner;
+    if (existingDeliveryPartner) {
+      // Update existing delivery partner record
+      console.log("🔄 Updating existing delivery partner record");
+      existingDeliveryPartner.name = formData.name || savedUser.name;
+      existingDeliveryPartner.email = formData.email || savedUser.email;
+      existingDeliveryPartner.phone = formData.phone || savedUser.phone;
+      existingDeliveryPartner.vehicle = {
+        type: formData.vehicleType === "motorcycle" || formData.vehicleType === "scooter" ? "bike" : 
+              formData.vehicleType === "car" ? "van" : "truck",
+        number: formData.vehicleNumber,
+        capacity: formData.vehicleType === "motorcycle" || formData.vehicleType === "scooter" ? 50 :
+                formData.vehicleType === "car" ? 200 : 500
+      };
+      existingDeliveryPartner.serviceArea = formData.serviceArea || { cities: [], maxDistance: 50 };
+      existingDeliveryPartner.documents = {
+        drivingLicense: formData.licenseNumber,
+        vehicleInsurance: "",
+        policeVerification: "",
+        aadharCard: formData.idProof?.number || ""
+      };
+      existingDeliveryPartner.bankDetails = {
+        accountNumber: formData.bankAccount?.accountNumber || "",
+        ifscCode: formData.bankAccount?.ifscCode || "",
+        accountHolderName: formData.bankAccount?.accountHolderName || ""
+      };
+      existingDeliveryPartner.workingHours = {
+        start: formData.availability?.startTime || "09:00",
+        end: formData.availability?.endTime || "18:00",
+        workingDays: Object.keys(formData.availability || {}).filter(day => 
+          ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].includes(day) && 
+          formData.availability[day] === true
+        )
+      };
+      existingDeliveryPartner.status = "offline"; // Reset to offline for reapplication
+      
+      savedPartner = await existingDeliveryPartner.save();
+      console.log("✅ Delivery partner record updated:", savedPartner._id);
+    } else {
+      // Create new delivery partner record
+      console.log("🆕 Creating new delivery partner record");
+      const newPartner = new DeliveryPartner({
+        userId: savedUser._id,
+        partnerId: `DP${Date.now().toString().slice(-6)}`, // Generate unique partner ID
+        name: formData.name || savedUser.name,
+        email: formData.email || savedUser.email,
+        phone: formData.phone || savedUser.phone,
+        vehicle: {
+          type: formData.vehicleType === "motorcycle" || formData.vehicleType === "scooter" ? "bike" : 
+                formData.vehicleType === "car" ? "van" : "truck",
+          number: formData.vehicleNumber,
+          capacity: formData.vehicleType === "motorcycle" || formData.vehicleType === "scooter" ? 50 :
+                  formData.vehicleType === "car" ? 200 : 500
+        },
+        currentLocation: {
+          lat: 0,
+          lng: 0,
+          lastUpdated: new Date()
+        },
+        status: "offline", // Valid enum value
+        isOnline: false,
+        serviceArea: formData.serviceArea || { cities: [], maxDistance: 50 },
+        documents: {
+          drivingLicense: formData.licenseNumber,
+          vehicleInsurance: "",
+          policeVerification: "",
+          aadharCard: formData.idProof?.number || ""
+        },
+        bankDetails: {
+          accountNumber: formData.bankAccount?.accountNumber || "",
+          ifscCode: formData.bankAccount?.ifscCode || "",
+          accountHolderName: formData.bankAccount?.accountHolderName || ""
+        },
+        workingHours: {
+          start: formData.availability?.startTime || "09:00",
+          end: formData.availability?.endTime || "18:00",
+          workingDays: Object.keys(formData.availability || {}).filter(day => 
+            ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].includes(day) && 
+            formData.availability[day] === true
+          )
+        }
       });
+
+      savedPartner = await newPartner.save();
+      console.log("✅ Delivery partner application created:", savedPartner._id);
     }
-
-    // Check if delivery partner already registered
-    const existingPartner = await DeliveryPartner.findOne({ 
-      $or: [{ email: formData.email }, { phone: formData.phone }] 
-    });
-
-    if (existingPartner) {
-      return res.status(400).json({
-        error: "Application already submitted",
-        message: "You have already submitted an application. Please wait for admin verification."
-      });
-    }
-
-    // Parse JSON fields
-    let serviceArea, address, idProof, bankAccount, emergencyContact, availability;
-    try {
-      serviceArea = JSON.parse(formData.serviceArea || '{}');
-      address = JSON.parse(formData.address || '{}');
-      idProof = JSON.parse(formData.idProof || '{}');
-      bankAccount = JSON.parse(formData.bankAccount || '{}');
-      emergencyContact = JSON.parse(formData.emergencyContact || '{}');
-      availability = JSON.parse(formData.availability || '{}');
-    } catch (error) {
-      console.error("❌ Error parsing JSON fields:", error);
-      return res.status(400).json({
-        error: "Invalid data format",
-        message: "Please check your form data and try again"
-      });
-    }
-
-    // Create user account
-    const newUser = new User({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      role: "delivery_partner",
-      isVerified: false, // Will be verified by admin
-      verificationDocuments: [],
-      deliveryPartnerRegistration: {
-        hasApplied: true,
-        applicationDate: new Date(),
-        applicationStatus: "pending"
-      }
-    });
-
-    const savedUser = await newUser.save();
-    console.log("✅ User account created:", savedUser._id);
-
-    // Create delivery partner application
-    const newPartner = new DeliveryPartner({
-      userId: savedUser._id,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      age: parseInt(formData.age),
-      gender: formData.gender,
-      vehicleType: formData.vehicleType,
-      vehicleNumber: formData.vehicleNumber,
-      licenseNumber: formData.licenseNumber,
-      experience: parseInt(formData.experience) || 0,
-      serviceArea: {
-        cities: serviceArea.cities || [],
-        maxDistance: parseInt(serviceArea.maxDistance) || 10
-      },
-      address: {
-        street: address.street || "",
-        city: address.city || "",
-        state: address.state || "",
-        pincode: address.pincode || "",
-        lat: parseFloat(address.lat) || 0,
-        lng: parseFloat(address.lng) || 0
-      },
-      idProof: {
-        type: idProof.type || "aadhaar",
-        number: idProof.number || "",
-        frontImage: files['idProof.frontImage'] ? files['idProof.frontImage'].filename : "",
-        backImage: files['idProof.backImage'] ? files['idProof.backImage'].filename : ""
-      },
-      bankAccount: {
-        accountNumber: bankAccount.accountNumber || "",
-        accountHolderName: bankAccount.accountHolderName || "",
-        bankName: bankAccount.bankName || "",
-        ifscCode: bankAccount.ifscCode || "",
-        branchName: bankAccount.branchName || ""
-      },
-      emergencyContact: {
-        name: emergencyContact.name || "",
-        phone: emergencyContact.phone || "",
-        relationship: emergencyContact.relationship || ""
-      },
-      availability: {
-        monday: availability.monday !== false,
-        tuesday: availability.tuesday !== false,
-        wednesday: availability.wednesday !== false,
-        thursday: availability.thursday !== false,
-        friday: availability.friday !== false,
-        saturday: availability.saturday !== false,
-        sunday: availability.sunday !== false,
-        startTime: availability.startTime || "09:00",
-        endTime: availability.endTime || "18:00"
-      },
-      status: "pending", // Pending admin verification
-      isOnline: false,
-      currentLocation: {
-        lat: parseFloat(address.lat) || 0,
-        lng: parseFloat(address.lng) || 0,
-        lastUpdated: new Date()
-      },
-      deliveryStats: {
-        totalDeliveries: 0,
-        successfulDeliveries: 0,
-        averageRating: 0,
-        totalEarnings: 0
-      },
-      registrationDate: new Date(),
-      lastSeen: new Date()
-    });
-
-    const savedPartner = await newPartner.save();
-    console.log("✅ Delivery partner application created:", savedPartner._id);
-
-    // Send notification to admin (you can implement email notification here)
-    console.log("📧 Sending notification to admin for verification");
 
     res.status(201).json({
       success: true,
-      message: "Registration submitted successfully! Your application is now pending admin verification.",
+      message: "Delivery partner application submitted successfully! Your application is now pending admin verification.",
       applicationId: savedPartner._id,
-      status: "pending"
+      user: savedUser.toJSON(),
+      applicationStatus: "pending"
     });
 
   } catch (error) {
@@ -1023,8 +1050,463 @@ router.post("/register", authMiddleware, upload.fields([
     console.error("❌ Error message:", error.message);
     
     res.status(500).json({
-      error: "Registration failed",
-      message: error.message || "Failed to submit registration. Please try again."
+      error: "Application submission failed",
+      message: error.message || "Failed to submit delivery partner application. Please try again."
+    });
+  }
+});
+
+// Get available orders for delivery partner (matched by vehicle capacity and delivery range)
+router.get("/available-orders", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get the delivery partner's profile
+    const deliveryPartner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!deliveryPartner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "No delivery partner profile found for this user"
+      });
+    }
+
+    // Get vehicle capacity and type
+    const vehicleCapacity = deliveryPartner.vehicle.capacity; // in kg
+    const vehicleType = deliveryPartner.vehicle.type; // bike, van, truck
+    const maxDeliveryDistance = deliveryPartner.serviceArea?.maxDistance || 50; // in km
+    const partnerLocation = deliveryPartner.currentLocation; // {lat, lng}
+
+    // Get orders that need delivery (confirmed but not assigned)
+    const Order = require("../models/Order");
+    const availableOrders = await Order.find({
+      status: { $in: ["Confirmed", "Processing"] },
+      "deliveryInfo.deliveryPartnerId": { $exists: false }
+    }).populate('buyerId sellerId', 'name phone address')
+    .populate('items');
+
+    // Filter orders based on vehicle capacity, delivery range, and calculate order weight
+    const matchedOrders = availableOrders.filter(order => {
+      // Calculate total weight/quantity of the order
+      let totalWeight = 0;
+      let totalQuantity = 0;
+      
+      order.items.forEach(item => {
+        // Estimate weight based on item type and quantity
+        let itemWeight = 0;
+        switch(item.itemType) {
+          case 'crop':
+            itemWeight = item.quantity * 0.5; // Assume 0.5kg per unit
+            break;
+          case 'seed':
+            itemWeight = item.quantity * 0.1; // Assume 0.1kg per unit
+            break;
+          case 'pesticide':
+          case 'fertilizer':
+            itemWeight = item.quantity * 1; // Assume 1kg per unit
+            break;
+          case 'equipment':
+            itemWeight = item.quantity * 5; // Assume 5kg per unit
+            break;
+          default:
+            itemWeight = item.quantity * 0.5; // Default weight
+        }
+        totalWeight += itemWeight;
+        totalQuantity += item.quantity;
+      });
+
+      // Add order weight and quantity to the order object for display
+      order.totalWeight = Math.round(totalWeight * 100) / 100; // Round to 2 decimal places
+      order.totalQuantity = totalQuantity;
+
+      // Check if the order fits in the vehicle capacity
+      const canHandleOrder = totalWeight <= vehicleCapacity;
+
+      // Additional matching logic based on vehicle type
+      let suitableForVehicle = true;
+      if (vehicleType === "bike" && totalWeight > 10) {
+        suitableForVehicle = false; // Bikes can't handle heavy loads
+      } else if (vehicleType === "van" && totalWeight > 100) {
+        suitableForVehicle = false; // Vans have medium capacity
+      }
+      // Trucks can handle any load within their capacity
+
+      // Calculate distance from partner to pickup location (seller's location)
+      let pickupDistance = Infinity;
+      let deliveryDistance = Infinity;
+      
+      // Use Haversine formula to calculate distance between two coordinates
+      const calculateDistance = (lat1, lng1, lat2, lng2) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c; // Distance in km
+      };
+
+      // Calculate distance to pickup location (seller's location)
+      if (order.sellerId?.location && partnerLocation.lat && partnerLocation.lng) {
+        // Try to get seller's coordinates from their location or address
+        let sellerLat = 0, sellerLng = 0;
+        
+        if (typeof order.sellerId.location === 'string') {
+          // If location is a string like "lat,lng"
+          const coords = order.sellerId.location.split(',');
+          if (coords.length === 2) {
+            sellerLat = parseFloat(coords[0]);
+            sellerLng = parseFloat(coords[1]);
+          }
+        } else if (order.sellerId.location?.lat && order.sellerId.location?.lng) {
+          sellerLat = order.sellerId.location.lat;
+          sellerLng = order.sellerId.location.lng;
+        }
+        
+        if (sellerLat && sellerLng) {
+          pickupDistance = calculateDistance(
+            partnerLocation.lat, 
+            partnerLocation.lng, 
+            sellerLat, 
+            sellerLng
+          );
+        }
+      }
+
+      // Calculate distance to delivery location (buyer's address)
+      if (order.deliveryInfo?.deliveryAddress?.lat && order.deliveryInfo?.deliveryAddress?.lng) {
+        deliveryDistance = calculateDistance(
+          partnerLocation.lat, 
+          partnerLocation.lng, 
+          order.deliveryInfo.deliveryAddress.lat, 
+          order.deliveryInfo.deliveryAddress.lng
+        );
+      }
+
+      // Check if order is within delivery range
+      const maxDistance = Math.max(pickupDistance, deliveryDistance);
+      const withinDeliveryRange = maxDistance <= maxDeliveryDistance;
+
+      // Add distance information to order object
+      order.pickupDistance = Math.round(pickupDistance * 10) / 10; // Round to 1 decimal place
+      order.deliveryDistance = Math.round(deliveryDistance * 10) / 10;
+      order.maxDistance = Math.round(maxDistance * 10) / 10;
+      order.withinRange = withinDeliveryRange;
+
+      return canHandleOrder && suitableForVehicle && withinDeliveryRange;
+    });
+
+    // Sort orders by distance (closest first) then by weight (lightest first)
+    matchedOrders.sort((a, b) => {
+      if (a.maxDistance !== b.maxDistance) {
+        return a.maxDistance - b.maxDistance;
+      }
+      return a.totalWeight - b.totalWeight;
+    });
+
+    console.log(`📦 Found ${matchedOrders.length} suitable orders for partner ${deliveryPartner.name} (capacity: ${vehicleCapacity}kg, range: ${maxDeliveryDistance}km)`);
+
+    res.json({
+      success: true,
+      orders: matchedOrders,
+      partnerInfo: {
+        name: deliveryPartner.name,
+        vehicleType: deliveryPartner.vehicle.type,
+        vehicleCapacity: deliveryPartner.vehicle.capacity,
+        maxDeliveryDistance: maxDeliveryDistance,
+        currentLocation: deliveryPartner.currentLocation,
+        serviceArea: deliveryPartner.serviceArea
+      },
+      count: matchedOrders.length
+    });
+
+  } catch (error) {
+    console.error("Get available orders error:", error);
+    res.status(500).json({
+      error: "Failed to fetch available orders",
+      message: error.message || "Failed to retrieve available orders"
+    });
+  }
+});
+
+// Accept an order (delivery partner accepts to deliver)
+router.post("/accept-order/:orderId", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    const { orderId } = req.params;
+
+    // Get the delivery partner
+    const deliveryPartner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!deliveryPartner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "No delivery partner profile found for this user"
+      });
+    }
+
+    // Get the order
+    const Order = require("../models/Order");
+    const order = await Order.findById(orderId).populate('buyerId sellerId');
+    if (!order) {
+      return res.status(404).json({
+        error: "Order not found",
+        message: "No order found with this ID"
+      });
+    }
+
+    // Check if order is already assigned
+    if (order.deliveryInfo?.deliveryPartnerId) {
+      return res.status(400).json({
+        error: "Order already assigned",
+        message: "This order has already been assigned to another delivery partner"
+      });
+    }
+
+    // Check if partner can handle this order (double-check)
+    let totalWeight = 0;
+    order.items.forEach(item => {
+      let itemWeight = 0;
+      switch(item.itemType) {
+        case 'crop':
+          itemWeight = item.quantity * 0.5;
+          break;
+        case 'seed':
+          itemWeight = item.quantity * 0.1;
+          break;
+        case 'pesticide':
+        case 'fertilizer':
+          itemWeight = item.quantity * 1;
+          break;
+        case 'equipment':
+          itemWeight = item.quantity * 5;
+          break;
+        default:
+          itemWeight = item.quantity * 0.5;
+      }
+      totalWeight += itemWeight;
+    });
+
+    if (totalWeight > deliveryPartner.vehicle.capacity) {
+      return res.status(400).json({
+        error: "Order too heavy",
+        message: `Order weight (${totalWeight.toFixed(2)}kg) exceeds your vehicle capacity (${deliveryPartner.vehicle.capacity}kg)`
+      });
+    }
+
+    // Create delivery record
+    const Delivery = require("../models/Delivery");
+    const delivery = new Delivery({
+      orderId: orderId,
+      partnerId: deliveryPartner._id,
+      assignedAt: new Date(),
+      status: "Assigned",
+      currentLocation: {
+        lat: deliveryPartner.currentLocation?.lat || 0,
+        lng: deliveryPartner.currentLocation?.lng || 0,
+        status: "Assigned",
+        lastUpdated: new Date()
+      },
+      destination: {
+        lat: order.deliveryInfo?.deliveryAddress?.lat || 0,
+        lng: order.deliveryInfo?.deliveryAddress?.lng || 0,
+        address: order.deliveryInfo?.deliveryAddress?.address || "Delivery address",
+        city: order.deliveryInfo?.deliveryAddress?.city || "",
+        state: order.deliveryInfo?.deliveryAddress?.state || "",
+        pincode: order.deliveryInfo?.deliveryAddress?.pincode || ""
+      },
+      estimatedDeliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from now
+    });
+
+    await delivery.save();
+
+    // Update order with delivery partner
+    order.deliveryInfo.deliveryPartnerId = deliveryPartner._id;
+    order.status = "Out for Delivery";
+    await order.save();
+
+    // Update partner status to busy
+    deliveryPartner.status = "busy";
+    await deliveryPartner.save();
+
+    console.log(`✅ Order ${orderId} accepted by delivery partner ${deliveryPartner.name}`);
+
+    res.status(201).json({
+      success: true,
+      message: "Order accepted successfully",
+      delivery: await Delivery.findById(delivery._id)
+        .populate('orderId', 'total status items')
+        .populate('partnerId', 'name phone email')
+    });
+
+  } catch (error) {
+    console.error("Accept order error:", error);
+    res.status(500).json({
+      error: "Failed to accept order",
+      message: error.message || "Failed to accept order"
+    });
+  }
+});
+
+// Get my deliveries for the delivery partner
+router.get("/my-deliveries", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get the delivery partner
+    const deliveryPartner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!deliveryPartner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "No delivery partner profile found for this user"
+      });
+    }
+
+    // Get all deliveries assigned to this partner
+    const Delivery = require("../models/Delivery");
+    const deliveries = await Delivery.find({ partnerId: deliveryPartner._id })
+      .populate('orderId', 'total status items')
+      .populate('orderId.buyerId', 'name phone address')
+      .sort({ assignedAt: -1 });
+
+    res.json({
+      success: true,
+      deliveries: deliveries,
+      count: deliveries.length
+    });
+
+  } catch (error) {
+    console.error("Get my deliveries error:", error);
+    res.status(500).json({
+      error: "Failed to fetch deliveries",
+      message: error.message || "Failed to retrieve your deliveries"
+    });
+  }
+});
+
+// Get messages for the delivery partner
+router.get("/messages", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get the delivery partner
+    const deliveryPartner = await DeliveryPartner.findOne({ userId: req.userId });
+    if (!deliveryPartner) {
+      return res.status(404).json({
+        error: "Delivery partner not found",
+        message: "No delivery partner profile found for this user"
+      });
+    }
+
+    // Mock messages for now - in real app, this would come from a chat system
+    const mockMessages = [
+      {
+        id: "1",
+        message: "Welcome to the delivery team!",
+        timestamp: new Date(Date.now() - 3600000), // 1 hour ago
+        sender: "admin",
+        type: "system"
+      },
+      {
+        id: "2", 
+        message: "Your first delivery is ready for pickup",
+        timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+        sender: "admin",
+        type: "notification"
+      }
+    ];
+
+    res.json({
+      success: true,
+      messages: mockMessages
+    });
+
+  } catch (error) {
+    console.error("Get messages error:", error);
+    res.status(500).json({
+      error: "Failed to fetch messages",
+      message: error.message || "Failed to retrieve messages"
+    });
+  }
+});
+
+// Send message (placeholder for chat functionality)
+router.post("/messages/:chatId", authMiddleware, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { message } = req.body;
+
+    // In a real app, this would save the message to a chat collection
+    // For now, we'll just return success
+    res.json({
+      success: true,
+      message: "Message sent successfully",
+      chatId: chatId,
+      message: message
+    });
+
+  } catch (error) {
+    console.error("Send message error:", error);
+    res.status(500).json({
+      error: "Failed to send message",
+      message: error.message || "Failed to send message"
+    });
+  }
+});
+
+// Get delivery partner application status
+router.get("/application-status", authMiddleware, async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    // Get authenticated user
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      hasApplied: user.deliveryPartnerRegistration.hasApplied,
+      applicationStatus: user.deliveryPartnerRegistration.applicationStatus,
+      applicationDate: user.deliveryPartnerRegistration.applicationDate,
+      role: user.role
+    });
+
+  } catch (error) {
+    console.error("Get application status error:", error);
+    res.status(500).json({
+      error: "Failed to fetch application status",
+      message: error.message || "Failed to retrieve application status"
     });
   }
 });

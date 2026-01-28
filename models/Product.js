@@ -85,9 +85,10 @@ const productSchema = new mongoose.Schema({
   },
 
   // ✅ Verification status
-  verified: {
-    type: Boolean,
-    default: false
+  isApproved: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending"
   },
 
   // 📊 Sales stats (VERY IMPORTANT for dashboard)

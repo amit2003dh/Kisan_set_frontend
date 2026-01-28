@@ -39,10 +39,11 @@ const cropSchema = new mongoose.Schema({
   minimumOrder: { type: Number, default: 1 },
   
   // ✅ Verification status
-  verified: {
-    type: Boolean,
-    default: false
-  }
+  isApproved: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending"
+  },
 }, {
   timestamps: true
 });

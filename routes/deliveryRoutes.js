@@ -1,9 +1,13 @@
 // Delivery Routes
 const router = require("express").Router();
 const Delivery = require("../models/Delivery");
+const DeliveryPartner = require("../models/DeliveryPartner");
+const Order = require("../models/Order");
 const mongoose = require("mongoose");
+const authMiddleware = require("../middleware/auth");
 
-router.post("/assign", async (req, res) => {
+// Get delivery by ID
+router.get("/:deliveryId", authMiddleware, async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({
@@ -12,14 +16,214 @@ router.post("/assign", async (req, res) => {
       });
     }
 
-    const delivery = new Delivery(req.body);
+    const { deliveryId } = req.params;
+
+    // Get the delivery with populated data
+    const Delivery = require("../models/Delivery");
+    const delivery = await Delivery.findById(deliveryId)
+      .populate('orderId', 'total status items buyerId sellerId')
+      .populate('orderId.buyerId', 'name phone email address')
+      .populate('orderId.sellerId', 'name phone email address')
+      .populate('partnerId', 'name phone email');
+
+    if (!delivery) {
+      return res.status(404).json({
+        error: "Delivery not found",
+        message: "No delivery found with this ID"
+      });
+    }
+
+    res.json({
+      success: true,
+      delivery: delivery
+    });
+
+  } catch (error) {
+    console.error("Get delivery error:", error);
+    res.status(500).json({
+      error: "Failed to fetch delivery",
+      message: error.message || "Failed to retrieve delivery details"
+    });
+  }
+});
+
+// Assign delivery to available partner (automatic assignment)
+router.post("/assign/:orderId", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    const { orderId } = req.params;
+    const { manualPartnerId, priority = "distance" } = req.body; // manualPartnerId for manual assignment
+
+    // Get the order details
+    const order = await Order.findById(orderId).populate('buyerId sellerId');
+    if (!order) {
+      return res.status(404).json({
+        error: "Order not found",
+        message: "No order found with this ID"
+      });
+    }
+
+    // Check if delivery already exists
+    const existingDelivery = await Delivery.findOne({ orderId });
+    if (existingDelivery) {
+      return res.status(400).json({
+        error: "Delivery already assigned",
+        message: "This order already has a delivery assigned"
+      });
+    }
+
+    let selectedPartner;
+
+    if (manualPartnerId) {
+      // Manual assignment
+      selectedPartner = await DeliveryPartner.findById(manualPartnerId);
+      if (!selectedPartner) {
+        return res.status(404).json({
+          error: "Delivery partner not found",
+          message: "No delivery partner found with this ID"
+        });
+      }
+    } else {
+      // Automatic assignment - find available partners
+      const availablePartners = await DeliveryPartner.find({
+        status: "available",
+        isOnline: true
+      }).populate('userId', 'name email phone');
+
+      if (availablePartners.length === 0) {
+        return res.status(404).json({
+          error: "No available partners",
+          message: "No delivery partners are currently available"
+        });
+      }
+
+      // Simple distance-based assignment (in real app, use actual geolocation)
+      selectedPartner = availablePartners[0];
+      console.log(`🚚 Auto-assigned delivery to partner: ${selectedPartner.name}`);
+    }
+
+    // Create delivery assignment
+    const delivery = new Delivery({
+      orderId: orderId,
+      partnerId: selectedPartner._id,
+      assignedAt: new Date(),
+      status: "Assigned",
+      currentLocation: {
+        lat: selectedPartner.currentLocation?.lat || 0,
+        lng: selectedPartner.currentLocation?.lng || 0,
+        status: "Assigned",
+        lastUpdated: new Date()
+      },
+      destination: {
+        lat: order.deliveryAddress?.lat || 0,
+        lng: order.deliveryAddress?.lng || 0,
+        address: order.deliveryAddress?.address || "Delivery address",
+        city: order.deliveryAddress?.city || "",
+        state: order.deliveryAddress?.state || "",
+        pincode: order.deliveryAddress?.pincode || ""
+      },
+      estimatedDeliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from now
+    });
+
     await delivery.save();
-    res.send(delivery);
+
+    // Update partner status
+    selectedPartner.status = "busy";
+    await selectedPartner.save();
+
+    // Update order status
+    order.status = "Out for Delivery";
+    await order.save();
+
+    console.log(`✅ Delivery assigned successfully: ${delivery._id}`);
+
+    res.status(201).json({
+      success: true,
+      message: "Delivery assigned successfully",
+      delivery: await Delivery.findById(delivery._id)
+        .populate('orderId', 'total status items')
+        .populate('partnerId', 'name phone email')
+    });
+
   } catch (error) {
     console.error("Assign delivery error:", error);
     res.status(500).json({
       error: "Failed to assign delivery",
-      message: error.message || "Failed to save delivery"
+      message: error.message || "Failed to assign delivery"
+    });
+  }
+});
+
+// Get available delivery partners for assignment
+router.get("/available-partners", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    const availablePartners = await DeliveryPartner.find({
+      status: "available",
+      isOnline: true
+    }).populate('userId', 'name email phone');
+
+    res.json({
+      success: true,
+      partners: availablePartners,
+      count: availablePartners.length
+    });
+
+  } catch (error) {
+    console.error("Get available partners error:", error);
+    res.status(500).json({
+      error: "Failed to fetch available partners",
+      message: error.message || "Failed to retrieve available partners"
+    });
+  }
+});
+
+// Get pending orders that need delivery assignment
+router.get("/pending-orders", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        error: "Database not connected",
+        message: "MongoDB is not connected. Please check your database connection."
+      });
+    }
+
+    const pendingOrders = await Order.find({
+      status: { $in: ["Confirmed", "Processing"] }
+    }).populate('buyerId sellerId', 'name email phone');
+
+    // Filter out orders that already have deliveries
+    const ordersWithDeliveries = await Delivery.find({
+      orderId: { $in: pendingOrders.map(order => order._id) }
+    }).distinct('orderId');
+
+    const pendingOrdersWithoutDelivery = pendingOrders.filter(
+      order => !ordersWithDeliveries.includes(order._id)
+    );
+
+    res.json({
+      success: true,
+      orders: pendingOrdersWithoutDelivery,
+      count: pendingOrdersWithoutDelivery.length
+    });
+
+  } catch (error) {
+    console.error("Get pending orders error:", error);
+    res.status(500).json({
+      error: "Failed to fetch pending orders",
+      message: error.message || "Failed to retrieve pending orders"
     });
   }
 });
