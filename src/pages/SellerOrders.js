@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 
@@ -26,9 +26,9 @@ export default function SellerOrders() {
       }
     }
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError("");
     
@@ -42,7 +42,7 @@ export default function SellerOrders() {
     }
     
     setLoading(false);
-  };
+  }, []);
 
   const calculateStats = (ordersData) => {
     const newStats = {

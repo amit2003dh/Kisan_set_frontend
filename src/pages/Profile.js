@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
@@ -24,9 +24,9 @@ export default function Profile() {
 
   useEffect(() => {
     fetchUserProfile();
-  }, []);
+  }, [fetchUserProfile]);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     setLoading(true);
     setError("");
     
@@ -57,7 +57,7 @@ export default function Profile() {
     }
     
     setLoading(false);
-  };
+  }, [navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

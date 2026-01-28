@@ -75,7 +75,7 @@ export default function SellerDashboard() {
     );
   }
 
-  const { overview, statusBreakdown, recentActivities, topProducts, recentChats } = dashboardData;
+  const { overview, recentActivities, topProducts, recentChats } = dashboardData;
 
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import { useCart } from "../context/CartContext";
 
@@ -96,14 +95,6 @@ export default function ProductStore() {
   const filteredProducts = filter === "all" 
     ? products 
     : products.filter(p => p.type === filter);
-
-  const handleAddToCart = (product) => {
-    if (!canBuyProducts()) {
-      alert("Sellers cannot buy products. You can only add and sell your own products.");
-      return;
-    }
-    addToCart(product);
-  };
 
   const getProductIcon = (type) => {
     return type === "seed" ? "🌱" : "🧪";
