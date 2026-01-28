@@ -6,6 +6,7 @@ export default function DeliveryPartnerDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [currentLocation, setCurrentLocation] = useState({ lat: 0, lng: 0 });
   const [isOnline, setIsOnline] = useState(false);
@@ -32,27 +33,103 @@ export default function DeliveryPartnerDashboard() {
       return;
     }
 
-    // Check if user is a delivery partner by checking their role and verification status
-    const isDeliveryPartner = userData.role === "delivery_partner" && userData.isVerified === true;
-    console.log("🔍 Is delivery partner:", isDeliveryPartner);
-    
-    setAuthStatus({
-      isAuthenticated: true,
-      isDeliveryPartner: isDeliveryPartner
-    });
+    // First, check the latest application status from server
+    const checkApplicationStatus = async () => {
+      try {
+        console.log("🔍 Checking application status from API...");
+        const { data, error } = await apiCall(() => API.get("/delivery-partner/application-status"));
+        console.log("🔍 API Response - Data:", data);
+        console.log("🔍 API Response - Error:", error);
+        
+        if (data) {
+          console.log("🔍 Latest application status from server:", data);
+          
+          // Update localStorage with latest status
+          userData.deliveryPartnerRegistration = {
+            hasApplied: data.hasApplied,
+            applicationStatus: data.applicationStatus,
+            applicationDate: data.applicationDate
+          };
+          userData.role = data.role;
+          localStorage.setItem("user", JSON.stringify(userData));
+          
+          console.log("🔍 Updated userData:", userData);
+          
+          // Check if user is a delivery partner by checking their role and application status
+          const isDeliveryPartner = userData.role === "delivery_partner" && 
+                                   userData.deliveryPartnerRegistration?.applicationStatus === "approved";
+          console.log("🔍 Role check:", userData.role, "=== delivery_partner:", userData.role === "delivery_partner");
+          console.log("🔍 Status check:", userData.deliveryPartnerRegistration?.applicationStatus, "=== approved:", userData.deliveryPartnerRegistration?.applicationStatus === "approved");
+          console.log("🔍 Final isDeliveryPartner:", isDeliveryPartner);
+          
+          setAuthStatus({
+            isAuthenticated: true,
+            isDeliveryPartner: isDeliveryPartner
+          });
 
-    // Only fetch dashboard data if user is a verified delivery partner
-    if (isDeliveryPartner) {
-      console.log("🔍 User is verified delivery partner, fetching dashboard data");
-      fetchDashboardData();
-      fetchCurrentLocation();
-      checkOnlineStatus();
-      fetchEarnings();
-      fetchPerformance();
-    } else {
-      console.log("🔍 User is not a verified delivery partner, setting loading to false");
-      setLoading(false);
-    }
+          // Only fetch dashboard data if user is a verified delivery partner
+          if (isDeliveryPartner) {
+            console.log("🔍 User is verified delivery partner, fetching dashboard data");
+            fetchDashboardData();
+            fetchCurrentLocation();
+            checkOnlineStatus();
+            fetchEarnings();
+            fetchPerformance();
+            fetchMyDeliveries();
+            fetchMessages();
+          } else {
+            console.log("🔍 User is not a verified delivery partner, setting loading to false");
+            setLoading(false);
+          }
+        } else if (error) {
+          console.error("🔍 API Error:", error);
+          // Fallback to localStorage data
+          const isDeliveryPartner = userData.role === "delivery_partner" && 
+                                   userData.deliveryPartnerRegistration?.applicationStatus === "approved";
+          console.log("🔍 Fallback - isDeliveryPartner:", isDeliveryPartner);
+          
+          setAuthStatus({
+            isAuthenticated: true,
+            isDeliveryPartner: isDeliveryPartner
+          });
+
+          if (isDeliveryPartner) {
+            fetchDashboardData();
+            fetchCurrentLocation();
+            checkOnlineStatus();
+            fetchEarnings();
+            fetchPerformance();
+            fetchMyDeliveries();
+            fetchMessages();
+          } else {
+            setLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error("🔍 Exception checking application status:", error);
+        // Fallback to localStorage data
+        const isDeliveryPartner = userData.role === "delivery_partner" && 
+                                 userData.deliveryPartnerRegistration?.applicationStatus === "approved";
+        console.log("🔍 Exception Fallback - isDeliveryPartner:", isDeliveryPartner);
+        
+        setAuthStatus({
+          isAuthenticated: true,
+          isDeliveryPartner: isDeliveryPartner
+        });
+
+        if (isDeliveryPartner) {
+          fetchDashboardData();
+          fetchCurrentLocation();
+          checkOnlineStatus();
+          fetchEarnings();
+          fetchPerformance();
+        } else {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkApplicationStatus();
   }, []);
 
   const fetchEarnings = async () => {
@@ -95,11 +172,14 @@ export default function DeliveryPartnerDashboard() {
     setError("");
     
     const { data, error: err } = await apiCall(() =>
-      API.get("/delivery-partner/my-orders")
+      API.get("/delivery-partner/available-orders")
     );
     
     if (err) {
-      setError(err);
+      // Don't show "not registered" errors since we know the user is approved
+      if (!err.includes("not registered") && !err.includes("registered as a delivery partner")) {
+        setError(err);
+      }
     } else {
       setDashboardData(data);
     }
@@ -163,6 +243,7 @@ export default function DeliveryPartnerDashboard() {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
+          console.log("📍 Updating location to:", latitude, longitude);
           try {
             const { error: err } = await apiCall(() =>
               API.put("/delivery-partner/location", {
@@ -172,8 +253,10 @@ export default function DeliveryPartnerDashboard() {
             );
 
             if (err) {
+              console.error("❌ Update location error:", err);
               setError(err);
             } else {
+              console.log("✅ Location updated successfully");
               setCurrentLocation({ lat: latitude, lng: longitude });
             }
           } catch (error) {
@@ -191,36 +274,152 @@ export default function DeliveryPartnerDashboard() {
     }
   };
 
+  const acceptOrder = async (orderId) => {
+    try {
+      console.log("🎯 Accepting order:", orderId);
+      const { data, error } = await apiCall(() =>
+        API.post(`/delivery-partner/accept-order/${orderId}`)
+      );
+
+      if (error) {
+        console.error("❌ Accept order error:", error);
+        setError(error);
+      } else {
+        console.log("✅ Order accepted successfully:", data);
+        setSuccess("Order accepted successfully! You are now assigned to this delivery.");
+        fetchDashboardData(); // Refresh the available orders
+        fetchCurrentLocation();
+        checkOnlineStatus();
+        fetchEarnings(); // Refresh earnings
+        fetchPerformance(); // Refresh performance
+      }
+    } catch (error) {
+      console.error("❌ Exception in acceptOrder:", error);
+      setError("Failed to accept order");
+    }
+  };
+
+  // Map View Data
+  const [mapCenter, setMapCenter] = useState({ lat: 20.5937, lng: 78.9629 }); // Default to India center
+  const [mapZoom, setMapZoom] = useState(5);
+
+  // Communication Data
+  const [messages, setMessages] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [newMessage, setNewMessage] = useState("");
+
+  // Delivery Queue Data
+  const [myDeliveries, setMyDeliveries] = useState([]);
+
+  const fetchMyDeliveries = async () => {
+    try {
+      const { data } = await apiCall(() => API.get("/delivery-partner/my-deliveries"));
+      if (data) {
+        setMyDeliveries(data.deliveries || []);
+      }
+    } catch (error) {
+      console.error("Error fetching my deliveries:", error);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const { data } = await apiCall(() => API.get("/delivery-partner/messages"));
+      if (data) {
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    
+    console.log("💬 Sending message:", newMessage, "to chat:", selectedChat);
+
+    try {
+      const { data, error } = await apiCall(() =>
+        API.post(`/delivery-partner/messages/${selectedChat}`, {
+          message: newMessage.trim()
+        })
+      );
+
+      if (error) {
+        console.error("❌ Send message error:", error);
+        setError(error);
+      } else {
+        console.log("✅ Message sent successfully:", data);
+        setNewMessage("");
+        fetchMessages();
+      }
+    } catch (error) {
+      console.error("❌ Exception sending message:", error);
+      setError("Failed to send message");
+    }
+  };
+
+  const completeDelivery = async (deliveryId) => {
+    try {
+      const { data, error } = await apiCall(() =>
+        API.put(`/delivery/${deliveryId}/status`, { status: "Delivered" })
+      );
+
+      if (error) {
+        setError(error);
+      } else {
+        setSuccess("Delivery completed successfully!");
+        fetchMyDeliveries(); // Refresh deliveries
+        fetchEarnings(); // Refresh earnings
+        fetchPerformance(); // Refresh performance
+        fetchDashboardData(); // Refresh available orders
+      }
+    } catch (error) {
+      setError("Failed to complete delivery");
+    }
+  };
+
   const handleStartDelivery = async (deliveryId) => {
     try {
+      console.log("🚚 Starting delivery for:", deliveryId);
       const { error: err } = await apiCall(() =>
         API.put(`/delivery/${deliveryId}/status`, { status: "In Transit" })
       );
       
       if (err) {
+        console.error("❌ Start delivery error:", err);
         setError(err);
       } else {
+        console.log("✅ Delivery started successfully");
         fetchDashboardData(); // Refresh data
+        fetchMyDeliveries(); // Refresh delivery queue
       }
     } catch (error) {
-      console.error("Error starting delivery:", error);
+      console.error("❌ Exception in handleStartDelivery:", error);
       setError("Failed to start delivery");
     }
   };
 
   const handleCompleteDelivery = async (deliveryId) => {
     try {
+      console.log("✅ Completing delivery for:", deliveryId);
       const { error: err } = await apiCall(() =>
         API.put(`/delivery/${deliveryId}/status`, { status: "Delivered" })
       );
       
       if (err) {
+        console.error("❌ Complete delivery error:", err);
         setError(err);
       } else {
-        fetchDashboardData(); // Refresh data
+        console.log("✅ Delivery completed successfully");
+        setSuccess("Delivery completed successfully!");
+        fetchMyDeliveries(); // Refresh deliveries
+        fetchEarnings(); // Refresh earnings
+        fetchPerformance(); // Refresh performance
+        fetchDashboardData(); // Refresh available orders
       }
     } catch (error) {
-      console.error("Error completing delivery:", error);
+      console.error("❌ Exception in handleCompleteDelivery:", error);
       setError("Failed to complete delivery");
     }
   };
@@ -239,134 +438,7 @@ export default function DeliveryPartnerDashboard() {
   console.log("🔍 Render - Is Authenticated:", authStatus.isAuthenticated);
   console.log("🔍 Render - Is Delivery Partner:", authStatus.isDeliveryPartner);
 
-  // Show registration prompt if user is not a verified delivery partner
-  if (!authStatus.isDeliveryPartner && authStatus.isAuthenticated) {
-    console.log("🔍 Showing registration prompt");
-    
-    // Get user data to show specific message
-    const user = localStorage.getItem("user");
-    const userData = user ? JSON.parse(user) : null;
-    const registrationStatus = userData?.deliveryPartnerRegistration?.applicationStatus || "not_applied";
-    const hasApplied = registrationStatus === "pending" || registrationStatus === "rejected";
-    
-    console.log("🔍 Registration Status:", registrationStatus);
-    console.log("🔍 Has Applied:", hasApplied);
-    
-    return (
-      <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px", textAlign: "center" }}>
-        <div className="card" style={{ maxWidth: "500px", margin: "0 auto", padding: "40px" }}>
-          <div style={{ fontSize: "64px", marginBottom: "24px" }}>🚚</div>
-          <h2 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>
-            {registrationStatus === "pending" ? "Application Pending Verification" : 
-             registrationStatus === "rejected" ? "Application Rejected" :
-             "Not Registered as Delivery Partner"}
-          </h2>
-          <p style={{ marginBottom: "32px", color: "var(--text-secondary)", lineHeight: "1.6" }}>
-            {registrationStatus === "pending" 
-              ? "Your delivery partner application is pending admin verification. You will receive an email once your account is approved."
-              : registrationStatus === "rejected"
-              ? "Your delivery partner application was rejected. You can reapply with updated information."
-              : "Your account is not registered as a delivery partner. Please register as a delivery partner to access this dashboard."
-            }
-          </p>
-          
-          {!hasApplied && (
-            <div style={{ 
-              display: "grid", 
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-              gap: "16px", 
-              marginBottom: "32px" 
-            }}>
-              <div style={{ 
-                padding: "20px", 
-                textAlign: "center", 
-                background: "var(--primary-blue)", 
-                color: "white", 
-                borderRadius: "8px" 
-              }}>
-                <div style={{ fontSize: "32px", marginBottom: "8px" }}>🚚</div>
-                <h4 style={{ margin: "0 0 8px 0" }}>Become a Partner</h4>
-                <p style={{ margin: "0", fontSize: "14px" }}>Register as delivery partner</p>
-              </div>
-              
-              <div style={{ 
-                padding: "20px", 
-                textAlign: "center", 
-                background: "#4caf50", 
-                color: "white", 
-                borderRadius: "8px" 
-              }}>
-                <div style={{ fontSize: "32px", marginBottom: "8px" }}>👤</div>
-                <h4 style={{ margin: "0 0 8px 0" }}>Already Registered?</h4>
-                <p style={{ margin: "0", fontSize: "14px" }}>Login as delivery partner</p>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "24px" }}>
-            {!hasApplied && (
-              <Link 
-                to="/delivery-partner/register" 
-                className="btn btn-primary"
-                style={{ 
-                  fontSize: "16px", 
-                  padding: "12px 24px", 
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
-                🚚 Register Now
-              </Link>
-            )}
-            
-            {registrationStatus === "rejected" && (
-              <Link 
-                to="/delivery-partner/register" 
-                className="btn btn-primary"
-                style={{ 
-                  fontSize: "16px", 
-                  padding: "12px 24px", 
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
-                🔄 Reapply Now
-              </Link>
-            )}
-            
-            <Link 
-              to="/login" 
-              className="btn btn-secondary"
-              style={{ 
-                fontSize: "16px", 
-                padding: "12px 24px", 
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px"
-              }}
-            >
-              👤 {hasApplied ? "Check Status" : "Login"}
-            </Link>
-          </div>
-
-          <div style={{ marginTop: "24px", textAlign: "center" }}>
-            <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-              {hasApplied 
-                ? "Need help? Contact support for assistance."
-                : "Already have an account? <Link to=\"/login\" style={{ color: \"var(--primary-blue)\", textDecoration: \"none\" }}>Login here</Link>"
-              }
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Since debug shows everything is correct, restore normal dashboard
   const deliveries = dashboardData?.deliveries || [];
   const stats = {
     total: deliveries.length,
@@ -382,6 +454,19 @@ export default function DeliveryPartnerDashboard() {
           <div>
             <h1>🚚 Delivery Partner Dashboard</h1>
             <p>Manage deliveries and track your performance</p>
+            {dashboardData?.partnerInfo && (
+              <div style={{ 
+                background: "var(--background-alt)", 
+                padding: "8px 12px", 
+                borderRadius: "6px", 
+                marginTop: "8px",
+                fontSize: "14px"
+              }}>
+                🚐 {dashboardData.partnerInfo.vehicleType} | 
+                📦 Capacity: {dashboardData.partnerInfo.vehicleCapacity}kg | 
+                📍 Range: {dashboardData.partnerInfo.maxDeliveryDistance || 50}km
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <div style={{
@@ -412,16 +497,16 @@ export default function DeliveryPartnerDashboard() {
       }}>
         <div style={{ display: "flex", gap: "0", overflowX: "auto" }}>
           {[/* eslint-disable indent */
-            { id: "overview", label: "📊 Overview", icon: "📊" },
-            { id: "queue", label: "📦 Delivery Queue", icon: "📦" },
-            { id: "map", label: "🗺️ Map View", icon: "🗺️" },
-            { id: "earnings", label: "💰 Earnings", icon: "💰" },
-            { id: "performance", label: "📈 Performance", icon: "📈" },
-            { id: "communication", label: "💬 Communication", icon: "💬" }
+            { id: "overview", label: "📊 Overview", icon: "📊", path: "/delivery-partner" },
+            { id: "queue", label: "📦 Delivery Queue", icon: "📦", path: "/delivery-partner/queue" },
+            { id: "map", label: "🗺️ Map View", icon: "🗺️", path: "/delivery-partner/map-view" },
+            { id: "earnings", label: "💰 Earnings", icon: "💰", path: "/delivery-partner/earnings" },
+            { id: "performance", label: "📈 Performance", icon: "📈", path: "/delivery-partner/performance" },
+            { id: "communication", label: "💬 Communication", icon: "💬", path: "/delivery-partner/communication" }
           ].map((tab) => (
-            <button
+            <Link
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              to={tab.path}
               style={{
                 padding: "12px 24px",
                 border: "none",
@@ -432,7 +517,9 @@ export default function DeliveryPartnerDashboard() {
                 fontSize: "14px",
                 fontWeight: "600",
                 transition: "all 0.3s ease",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap",
+                textDecoration: "none",
+                display: "inline-block"
               }}
               onMouseEnter={(e) => {
                 if (activeTab !== tab.id) {
@@ -446,12 +533,13 @@ export default function DeliveryPartnerDashboard() {
               }}
             >
               {tab.label}
-            </button>
+            </Link>
           ))}
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
 
       {/* Stats Cards */}
       <div style={{ 
@@ -502,105 +590,159 @@ export default function DeliveryPartnerDashboard() {
             className="btn btn-primary"
             style={{ fontSize: "14px", padding: "10px 20px" }}
           >
-            📍 Update Location
+            � Update Location
           </button>
-          <Link
-            to="/delivery-partner/orders"
-            className="btn btn-secondary"
-            style={{ fontSize: "14px", padding: "10px 20px" }}
-          >
-            📦 View All Orders
-          </Link>
-          <Link
-            to="/profile"
-            className="btn btn-outline"
-            style={{ fontSize: "14px", padding: "10px 20px" }}
-          >
-            👤 My Profile
-          </Link>
         </div>
       </div>
 
-      {/* Current Location */}
-      <div className="card" style={{ marginBottom: "32px" }}>
-        <h3 style={{ marginBottom: "16px" }}>📍 Current Location</h3>
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", 
-          gap: "16px" 
-        }}>
-          <div>
-            <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Latitude:</span>
-            <strong style={{ color: "var(--text-primary)" }}>{currentLocation.lat.toFixed(6)}</strong>
-          </div>
-          <div>
-            <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Longitude:</span>
-            <strong style={{ color: "var(--text-primary)" }}>{currentLocation.lng.toFixed(6)}</strong>
-          </div>
-          <div>
-            <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Last Updated:</span>
-            <strong style={{ color: "var(--text-primary)" }}>
-              {new Date().toLocaleTimeString()}
-            </strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Deliveries */}
+      {/* Available Orders - Only show on Overview */}
       <div className="card">
-        <h3 style={{ marginBottom: "16px" }}>📦 Recent Deliveries</h3>
-        {deliveries.length === 0 ? (
+        <h3 style={{ marginBottom: "16px" }}>📦 Available Orders ({dashboardData?.count || 0})</h3>
+        {(!dashboardData?.orders || dashboardData.orders.length === 0) ? (
           <div style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
             <div style={{ fontSize: "48px", marginBottom: "16px" }}>📦</div>
-            <p>No deliveries assigned yet</p>
-            <p style={{ fontSize: "14px" }}>Go online to receive delivery assignments</p>
+            <p>No available orders matching your vehicle capacity and delivery range</p>
+            <p style={{ fontSize: "14px" }}>
+              {dashboardData?.partnerInfo ? 
+                `Your ${dashboardData.partnerInfo.vehicleType} can carry up to ${dashboardData.partnerInfo.vehicleCapacity}kg within ${dashboardData.partnerInfo.maxDeliveryDistance || 50}km` : 
+                "Go online to receive delivery assignments"
+              }
+            </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {deliveries.slice(0, 5).map((delivery) => (
-              <div key={delivery._id} style={{
+            {dashboardData.orders.map((order) => (
+              <div key={order._id} style={{
                 border: "1px solid var(--border-color)",
                 borderRadius: "var(--border-radius-sm)",
                 padding: "16px",
                 background: "var(--background)"
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <h4 style={{ margin: "0 0 8px 0", color: "var(--text-primary)" }}>
-                      Order #{delivery.orderId?._id?.slice(-8).toUpperCase()}
+                      Order #{order._id.slice(-8).toUpperCase()}
                     </h4>
-                    <p style={{ margin: "0 0 4px 0", color: "var(--text-secondary)" }}>
-                      Status: <span style={{
-                        padding: "4px 8px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        background: delivery.status === "Delivered" ? "#4caf50" : 
-                                   delivery.status === "In Transit" ? "#2196f3" : "#ff9800",
-                        color: "white"
-                      }}>
-                        {delivery.status}
-                      </span>
-                    </p>
-                    {delivery.destination && (
-                      <p style={{ margin: "0 0 4px 0", color: "var(--text-secondary)" }}>
-                        📍 {delivery.destination.address || "Address not available"}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "8px", marginBottom: "8px" }}>
+                      <p style={{ margin: "0", fontSize: "13px", color: "var(--text-secondary)" }}>
+                        <strong>Customer:</strong> {order.buyerId?.name}
+                      </p>
+                      <p style={{ margin: "0", fontSize: "13px", color: "var(--text-secondary)" }}>
+                        <strong>Total:</strong> ₹{order.total}
+                      </p>
+                      <p style={{ margin: "0", fontSize: "13px", color: "var(--text-secondary)" }}>
+                        <strong>Weight:</strong> {order.totalWeight || 0}kg
+                      </p>
+                      <p style={{ margin: "0", fontSize: "13px", color: "var(--text-secondary)" }}>
+                        <strong>Items:</strong> {order.totalQuantity || 0}
+                      </p>
+                      <p style={{ margin: "0", fontSize: "13px", color: "var(--text-secondary)" }}>
+                        <strong>Distance:</strong> {order.maxDistance || 0}km
+                      </p>
+                    </div>
+                    
+                    {/* Order Items */}
+                    <div style={{ marginBottom: "8px" }}>
+                      <p style={{ margin: "0 0 4px 0", fontSize: "12px", fontWeight: "600", color: "var(--text-secondary)" }}>
+                        📦 Items:
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        {order.items?.map((item, index) => (
+                          <span key={index} style={{
+                            background: "var(--background-alt)",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            color: "var(--text-secondary)"
+                          }}>
+                            {item.name} ({item.quantity})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Delivery Address */}
+                    {order.deliveryInfo?.deliveryAddress && (
+                      <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "var(--text-secondary)" }}>
+                        📍 {order.deliveryInfo.deliveryAddress.address}, {order.deliveryInfo.deliveryAddress.city}
                       </p>
                     )}
+
+                    {/* Distance Details */}
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+                      <span style={{ 
+                        background: "var(--background-alt)", 
+                        padding: "2px 6px", 
+                        borderRadius: "4px", 
+                        fontSize: "11px",
+                        color: "var(--text-secondary)"
+                      }}>
+                        🏪 Pickup: {order.pickupDistance || 0}km
+                      </span>
+                      <span style={{ 
+                        background: "var(--background-alt)", 
+                        padding: "2px 6px", 
+                        borderRadius: "4px", 
+                        fontSize: "11px",
+                        color: "var(--text-secondary)"
+                      }}>
+                        🏠 Delivery: {order.deliveryDistance || 0}km
+                      </span>
+                    </div>
+
+                    {/* Weight and Range Match Indicators */}
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {/* Weight Match Indicator */}
+                      <div style={{ 
+                        display: "inline-block", 
+                        padding: "4px 8px", 
+                        borderRadius: "4px", 
+                        fontSize: "11px",
+                        background: order.totalWeight <= (dashboardData?.partnerInfo?.vehicleCapacity || 0) ? "#e8f5e8" : "#ffeaea",
+                        color: order.totalWeight <= (dashboardData?.partnerInfo?.vehicleCapacity || 0) ? "#2e7d32" : "#c62828"
+                      }}>
+                        {order.totalWeight <= (dashboardData?.partnerInfo?.vehicleCapacity || 0) ? 
+                          "✅ Fits your vehicle" : 
+                          "⚠️ Too heavy"
+                        }
+                      </div>
+
+                      {/* Range Match Indicator */}
+                      <div style={{ 
+                        display: "inline-block", 
+                        padding: "4px 8px", 
+                        borderRadius: "4px", 
+                        fontSize: "11px",
+                        background: order.withinRange ? "#e8f5e8" : "#ffeaea",
+                        color: order.withinRange ? "#2e7d32" : "#c62828"
+                      }}>
+                        {order.withinRange ? 
+                          `✅ Within ${dashboardData?.partnerInfo?.maxDeliveryDistance || 50}km range` : 
+                          `⚠️ Outside range`
+                        }
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <Link
-                      to={`/orders/${delivery.orderId._id}/delivery-chat`}
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                    <button
+                      onClick={() => acceptOrder(order._id)}
                       className="btn btn-primary"
                       style={{ fontSize: "12px", padding: "6px 12px" }}
+                      disabled={order.totalWeight > (dashboardData?.partnerInfo?.vehicleCapacity || 0) || !order.withinRange}
                     >
-                      💬 Chat
-                    </Link>
+                      {order.totalWeight > (dashboardData?.partnerInfo?.vehicleCapacity || 0) ? 
+                        "Too Heavy" : 
+                        !order.withinRange ? 
+                        "Out of Range" :
+                        "Accept Order"
+                      }
+                    </button>
                     <Link
-                      to={`/tracking?deliveryId=${delivery._id}`}
+                      to={`/orders/${order._id}`}
                       className="btn btn-secondary"
                       style={{ fontSize: "12px", padding: "6px 12px" }}
                     >
-                      📍 Track
+                      📋 Details
                     </Link>
                   </div>
                 </div>

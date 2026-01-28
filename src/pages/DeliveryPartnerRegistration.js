@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 
@@ -60,7 +60,47 @@ export default function DeliveryPartnerRegistration() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [currentStep, setCurrentStep] = useState(1);
+  const [applicationStatus, setApplicationStatus] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(true);
   const navigate = useNavigate();
+
+  // Check application status on component mount
+  useEffect(() => {
+    const checkApplicationStatus = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("Please login to submit a delivery partner application");
+          setCheckingStatus(false);
+          return;
+        }
+
+        const { data, error: statusError } = await apiCall(() =>
+          API.get("/delivery-partner/application-status")
+        );
+
+        if (statusError) {
+          if (statusError.includes("Your application is currently")) {
+            setApplicationStatus("pending");
+            setError(statusError);
+          } else {
+            setError(statusError);
+          }
+        } else if (data) {
+          setApplicationStatus(data.applicationStatus);
+          if (data.hasApplied) {
+            setError(`You already have an application with status: ${data.applicationStatus}`);
+          }
+        }
+      } catch (err) {
+        console.error("Error checking application status:", err);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    checkApplicationStatus();
+  }, []);
 
   const cities = [
     "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata",
@@ -96,22 +136,22 @@ export default function DeliveryPartnerRegistration() {
     
     if (name.includes(".")) {
       const [parent, child] = name.split(".");
-      if (type === "checkbox") {
-        setFormData(prev => ({
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [child]: checked
-          }
-        }));
-      } else if (name.includes("cities")) {
+      if (name === "serviceArea.cities") {
         setFormData(prev => ({
           ...prev,
           serviceArea: {
             ...prev.serviceArea,
             cities: checked 
-              ? [...prev.serviceArea.cities, value]
-              : prev.serviceArea.cities.filter(city => city !== value)
+              ? [...(Array.isArray(prev.serviceArea.cities) ? prev.serviceArea.cities : []), value]
+              : (Array.isArray(prev.serviceArea.cities) ? prev.serviceArea.cities.filter(city => city !== value) : [])
+          }
+        }));
+      } else if (type === "checkbox") {
+        setFormData(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: checked
           }
         }));
       } else {
@@ -183,6 +223,23 @@ export default function DeliveryPartnerRegistration() {
         setError(err);
       } else {
         setSuccess("Registration submitted successfully! Your application is now pending admin verification. You will receive an email once your account is approved.");
+        
+        // Refresh application status after successful submission
+        const checkNewStatus = async () => {
+          try {
+            const { data: statusData } = await apiCall(() =>
+              API.get("/delivery-partner/application-status")
+            );
+            if (statusData) {
+              setApplicationStatus(statusData.applicationStatus);
+            }
+          } catch (statusErr) {
+            console.error("Error checking new status:", statusErr);
+          }
+        };
+        
+        checkNewStatus();
+        
         // Reset form
         setFormData({
           name: "",
@@ -744,73 +801,123 @@ export default function DeliveryPartnerRegistration() {
         <p>Join our delivery network and start earning today!</p>
       </div>
 
-      {error && <div className="error-message" style={{ marginBottom: "16px" }}>{error}</div>}
-      {success && <div className="success-message" style={{ marginBottom: "16px" }}>{success}</div>}
-
-      {/* Progress Bar */}
-      <div style={{ marginBottom: "32px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-          <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Step {currentStep} of 5</span>
-          <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            {currentStep === 1 && "Personal Info"}
-            {currentStep === 2 && "Vehicle Info"}
-            {currentStep === 3 && "Address"}
-            {currentStep === 4 && "Documents"}
-            {currentStep === 5 && "Review & Submit"}
-          </span>
+      {checkingStatus ? (
+        <div style={{ textAlign: "center", padding: "40px" }}>
+          <p>Checking your application status...</p>
         </div>
-        <div style={{ height: "8px", background: "var(--border-color)", borderRadius: "4px", overflow: "hidden" }}>
-          <div 
-            style={{ 
-              height: "100%", 
-              width: `${(currentStep / 5) * 100}%`, 
-              background: "var(--primary-blue)", 
-              transition: "width 0.3s ease" 
-            }}
-          />
+      ) : applicationStatus === "pending" ? (
+        <div className="card" style={{ maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ marginBottom: "24px", color: "var(--primary-blue)" }}>⏳ Application Under Review</h2>
+          <div style={{ background: "var(--background-alt)", padding: "20px", borderRadius: "8px", marginBottom: "24px" }}>
+            <p style={{ fontSize: "16px", marginBottom: "16px" }}>
+              Your delivery partner application is currently under review. We'll notify you once there's an update.
+            </p>
+            <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+              Status: <strong>pending</strong>
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
+            <Link to="/" className="btn btn-outline">
+              Back to Home
+            </Link>
+          </div>
         </div>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        {renderStep()}
-
-        {/* Navigation Buttons */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "24px" }}>
-          <button
-            type="button"
-            onClick={prevStep}
-            className="btn btn-outline"
-            disabled={currentStep === 1}
-            style={{ visibility: currentStep === 1 ? "hidden" : "visible" }}
-          >
-            ← Previous
-          </button>
-          
-          {currentStep < 5 ? (
+      ) : applicationStatus === "approved" ? (
+        <>
+          {(() => {
+            // Auto redirect to dashboard
+            navigate("/delivery-partner/dashboard");
+            return null;
+          })()}
+        </>
+      ) : applicationStatus === "rejected" ? (
+        <div className="card" style={{ maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ marginBottom: "24px", color: "var(--primary-blue)" }}>❌ Application Rejected</h2>
+          <div style={{ background: "var(--background-alt)", padding: "20px", borderRadius: "8px", marginBottom: "24px" }}>
+            <p style={{ fontSize: "16px", marginBottom: "16px" }}>
+              Your application was not approved. You can reapply with updated information.
+            </p>
+            <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+              Status: <strong>rejected</strong>
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
             <button
-              type="button"
-              onClick={nextStep}
+              onClick={() => setApplicationStatus(null)}
               className="btn btn-primary"
             >
-              Next →
+              Reapply Now
             </button>
-          ) : (
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? "Submitting..." : "Submit Application"}
-            </button>
-          )}
+            <Link to="/" className="btn btn-outline">
+              Back to Home
+            </Link>
+          </div>
         </div>
-      </form>
+      ) : (
+        <>
+          {error && <div className="error-message" style={{ marginBottom: "16px" }}>{error}</div>}
+          {success && <div className="success-message" style={{ marginBottom: "16px" }}>{success}</div>}
 
-      <div style={{ textAlign: "center", marginTop: "32px" }}>
-        <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-          Already have an account? <Link to="/login" style={{ color: "var(--primary-blue)" }}>Login here</Link>
-        </p>
-      </div>
+          {/* Progress Bar */}
+          <div style={{ marginBottom: "32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+              <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Step {currentStep} of 5</span>
+              <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
+                {currentStep === 1 && "Personal Info"}
+                {currentStep === 2 && "Vehicle Info"}
+                {currentStep === 3 && "Address"}
+                {currentStep === 4 && "Documents"}
+                {currentStep === 5 && "Review & Submit"}
+              </span>
+            </div>
+            <div style={{ height: "8px", background: "var(--border-color)", borderRadius: "4px", overflow: "hidden" }}>
+              <div 
+                style={{ 
+                  height: "100%", 
+                  width: `${(currentStep / 5) * 100}%`, 
+                  background: "var(--primary-blue)", 
+                  transition: "width 0.3s ease" 
+                }}
+              />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {renderStep()}
+
+            {/* Navigation Buttons */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "24px" }}>
+              <button
+                type="button"
+                onClick={prevStep}
+                className="btn btn-outline"
+                disabled={currentStep === 1}
+                style={{ visibility: currentStep === 1 ? "hidden" : "visible" }}
+              >
+                ← Previous
+              </button>
+              
+              {currentStep < 5 ? (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className="btn btn-primary"
+                >
+                  Next →
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? "Submitting..." : "Submit Application"}
+                </button>
+              )}
+            </div>
+          </form>
+        </>
+      )}
     </div>
   );
 }

@@ -5,6 +5,12 @@ import SellerDashboard from "./pages/SellerDashboard";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import DeliveryPartnerDashboard from "./pages/DeliveryPartnerDashboard";
 import DeliveryPartnerOrders from "./pages/DeliveryPartnerOrders";
+import DeliveryDetails from "./pages/DeliveryDetails";
+import DeliveryEarnings from "./pages/DeliveryEarnings";
+import DeliveryPerformance from "./pages/DeliveryPerformance";
+import DeliveryCommunication from "./pages/DeliveryCommunication";
+import DeliveryMapView from "./pages/DeliveryMapView";
+import DeliveryQueue from "./pages/DeliveryQueue";
 import ManageCrops from "./pages/ManageCrops";
 import ManageProducts from "./pages/ManageProducts";
 import CropList from "./pages/CropList";
@@ -43,6 +49,12 @@ function AppContent() {
         <Route path="/delivery-partner" element={<DeliveryPartnerDashboard />} />
         <Route path="/delivery-partner/register" element={<DeliveryPartnerRegistration />} />
         <Route path="/delivery-partner/orders" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerOrders /></ProtectedRoute>} />
+        <Route path="/delivery-partner/queue" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryQueue /></ProtectedRoute>} />
+        <Route path="/delivery/:deliveryId" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryDetails /></ProtectedRoute>} />
+        <Route path="/delivery-partner/earnings" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryEarnings /></ProtectedRoute>} />
+        <Route path="/delivery-partner/performance" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPerformance /></ProtectedRoute>} />
+        <Route path="/delivery-partner/communication" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryCommunication /></ProtectedRoute>} />
+        <Route path="/delivery-partner/map-view" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryMapView /></ProtectedRoute>} />
         <Route path="/manage-crops" element={<ProtectedRoute requiredRole="farmer" excludeRoles={["delivery_partner"]}><ManageCrops /></ProtectedRoute>} />
         <Route path="/manage-products" element={<ProtectedRoute requiredRole="seller" excludeRoles={["delivery_partner"]}><ManageProducts /></ProtectedRoute>} />
         <Route path="/add-crop" element={<ProtectedRoute requiredRole="farmer" excludeRoles={["delivery_partner"]}><AddCrop /></ProtectedRoute>} />

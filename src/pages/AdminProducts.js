@@ -49,29 +49,29 @@ export default function AdminProducts() {
     await fetchData();
   };
 
-  const handleVerification = async (itemId, verified, type) => {
+  const handleVerification = async (itemId, isApproved, type) => {
     setError("");
     setSuccess("");
     
     try {
       const endpoint = type === "crop" ? `/crops/${itemId}/verify` : `/products/${itemId}/verify`;
       const { data, error: err } = await apiCall(() =>
-        API.put(endpoint, { verified })
+        API.put(endpoint, { isApproved: isApproved ? 'approved' : 'pending' })
       );
       
       if (err) {
         setError(err);
       } else {
-        setSuccess(`${type === "crop" ? "Crop" : "Product"} ${verified ? 'verified' : 'unverified'} successfully!`);
+        setSuccess(`${type === "crop" ? "Crop" : "Product"} ${isApproved ? 'approved' : 'unapproved'} successfully!`);
         
         // Update the item in the appropriate list
         if (type === "crop") {
           setCrops(prev => prev.map(item => 
-            item._id === itemId ? { ...item, verified } : item
+            item._id === itemId ? { ...item, isApproved: isApproved ? 'approved' : 'pending' } : item
           ));
         } else {
           setProducts(prev => prev.map(item => 
-            item._id === itemId ? { ...item, verified } : item
+            item._id === itemId ? { ...item, isApproved: isApproved ? 'approved' : 'pending' } : item
           ));
         }
         
@@ -79,19 +79,19 @@ export default function AdminProducts() {
         setTimeout(() => setSuccess(""), 3000);
       }
     } catch (err) {
-      setError(`Failed to ${verified ? 'verify' : 'unverify'} ${type}`);
+      setError(`Failed to ${isApproved ? 'approve' : 'unapprove'} ${type}`);
     }
   };
 
   const filteredProducts = products.filter(product => {
-    if (filter === "verified") return product.verified;
-    if (filter === "unverified") return !product.verified;
+    if (filter === "verified") return product.isApproved === 'approved';
+    if (filter === "unverified") return product.isApproved !== 'approved';
     return true; // all
   });
 
   const filteredCrops = crops.filter(crop => {
-    if (filter === "verified") return crop.verified;
-    if (filter === "unverified") return !crop.verified;
+    if (filter === "verified") return crop.isApproved === 'approved';
+    if (filter === "unverified") return crop.isApproved !== 'approved';
     return true; // all
   });
 
@@ -149,14 +149,14 @@ export default function AdminProducts() {
             className={`btn ${filter === "verified" ? "btn-primary" : "btn-secondary"}`}
             style={{ padding: "8px 16px" }}
           >
-            ✓ Verified ({activeTab === "products" ? products.filter(p => p.verified).length : crops.filter(c => c.verified).length})
+            ✓ Verified ({activeTab === "products" ? products.filter(p => p.isApproved === 'approved').length : crops.filter(c => c.isApproved === 'approved').length})
           </button>
           <button
             onClick={() => setFilter("unverified")}
             className={`btn ${filter === "unverified" ? "btn-primary" : "btn-secondary"}`}
             style={{ padding: "8px 16px" }}
           >
-            ⚠ Unverified ({activeTab === "products" ? products.filter(p => !p.verified).length : crops.filter(c => !c.verified).length})
+            ⚠ Unverified ({activeTab === "products" ? products.filter(p => p.isApproved !== 'approved').length : crops.filter(c => c.isApproved !== 'approved').length})
           </button>
         </div>
       </div>
@@ -204,13 +204,13 @@ export default function AdminProducts() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                     <h4 style={{ margin: 0, fontSize: "16px" }}>{item.name}</h4>
-                    {item.verified && (
+                    {item.isApproved === 'approved' && (
                       <span style={{
                         backgroundColor: "#4caf50",
                         color: "white",
-                        fontSize: "12px",
-                        padding: "2px 6px",
+                        padding: "2px 8px",
                         borderRadius: "12px",
+                        fontSize: "12px",
                         fontWeight: "500"
                       }}>
                         ✓ Verified
@@ -236,11 +236,11 @@ export default function AdminProducts() {
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <button
-                    onClick={() => handleVerification(item._id, !item.verified, activeTab === "crops" ? "crop" : "product")}
-                    className={`btn ${item.verified ? "btn-secondary" : "btn-primary"}`}
+                    onClick={() => handleVerification(item._id, item.isApproved !== 'approved', activeTab === "crops" ? "crop" : "product")}
+                    className={`btn ${item.isApproved === 'approved' ? "btn-secondary" : "btn-primary"}`}
                     style={{ padding: "8px 16px", fontSize: "14px" }}
                   >
-                    {item.verified ? "🚫 Unverify" : "✅ Verify"}
+                    {item.isApproved === 'approved' ? "🚫 Unapprove" : "✅ Approve"}
                   </button>
                 </div>
               </div>
