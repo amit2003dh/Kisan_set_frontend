@@ -32,7 +32,7 @@ export default function DeliveryCommunication() {
     if (!newMessage.trim()) return;
 
     try {
-      const { data, error } = await apiCall(() =>
+      const { error } = await apiCall(() =>
         API.post(`/delivery-partner/messages/${selectedChat}`, {
           message: newMessage.trim()
         })

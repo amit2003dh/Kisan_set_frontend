@@ -44,18 +44,13 @@ export default function AdminProducts() {
     setLoading(false);
   };
 
-  const fetchProducts = async () => {
-    // Keep for backward compatibility
-    await fetchData();
-  };
-
   const handleVerification = async (itemId, isApproved, type) => {
     setError("");
     setSuccess("");
     
     try {
       const endpoint = type === "crop" ? `/crops/${itemId}/verify` : `/products/${itemId}/verify`;
-      const { data, error: err } = await apiCall(() =>
+      const { error: err } = await apiCall(() =>
         API.put(endpoint, { isApproved: isApproved ? 'approved' : 'pending' })
       );
       
