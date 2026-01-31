@@ -96,7 +96,7 @@ export default function CropDoctor() {
       formData.append('image', selectedImage);
 
       // Call backend API for crop analysis
-      const response = await fetch(`${API_BASE_URL}/crop-analysis/crop-analyze`, {
+      const response = await fetch(`${API_BASE_URL}/crop-analysis`, {
         method: 'POST',
         body: formData,
       });
