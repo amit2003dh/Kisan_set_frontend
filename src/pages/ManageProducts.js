@@ -318,9 +318,13 @@ export default function ManageProducts() {
           {filteredProducts.map((product) => (
             <div key={product._id} className="card">
               {/* Product Image */}
-              {product.images && product.images.length > 0 && product.images[0] && (
+              {product.images && product.images.length > 0 && (
                 <img
-                  src={product.images[0].startsWith("http") ? product.images[0] : `${STATIC_BASE_URL}${product.images[0]}`}
+                  src={
+                    product.images[product.primaryImageIndex || 0].startsWith("http") 
+                      ? product.images[product.primaryImageIndex || 0] 
+                      : `${STATIC_BASE_URL}${product.images[product.primaryImageIndex || 0]}`
+                  }
                   alt={product.name}
                   style={{
                     width: "100%",
@@ -329,7 +333,7 @@ export default function ManageProducts() {
                     borderRadius: "var(--border-radius-sm) var(--border-radius-sm) 0 0"
                   }}
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/350x200/2196f3/ffffff?text=🛒+Product+Image";
+                    e.target.src = "https://via.placeholder.com/350x200/2196f3/ffffff?text=�+Product+Image";
                   }}
                 />
               )}

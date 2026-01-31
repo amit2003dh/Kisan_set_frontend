@@ -5,8 +5,10 @@ import { useCart } from "../context/CartContext";
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const profileMenuRef = useRef(null);
@@ -24,6 +26,7 @@ export default function Navbar() {
   useEffect(() => {
     let lastScrollY = window.scrollY;
     let ticking = false;
+    let scrollTimeout = null;
 
     const handleScroll = () => {
       if (!ticking) {
@@ -33,9 +36,9 @@ export default function Navbar() {
           // Only update if scroll difference is significant (to prevent vibration)
           const scrollDelta = Math.abs(currentScrollY - lastScrollY);
           
-          if (scrollDelta > 5) { // Only react to scrolls > 5px
+          if (scrollDelta > 10) { // Increased threshold to reduce flickering
             // Hide navbar when scrolling down, show when scrolling up
-            if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            if (currentScrollY > lastScrollY && currentScrollY > 50) {
               setNavbarVisible(false);
             } else {
               setNavbarVisible(true);
@@ -52,21 +55,48 @@ export default function Navbar() {
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    // Debounce scroll events to reduce flickering
+    const debouncedHandleScroll = () => {
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      scrollTimeout = setTimeout(handleScroll, 16); // ~60fps
+    };
+
+    window.addEventListener("scroll", debouncedHandleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", debouncedHandleScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
   }, []);
 
-  // Close profile menu when clicking outside
+  // Handle mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
         setShowProfileMenu(false);
       }
+      if (showMobileMenu && !event.target.closest('.mobile-menu-container')) {
+        setShowMobileMenu(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [showMobileMenu]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -81,6 +111,11 @@ export default function Navbar() {
     setShowProfileMenu(!showProfileMenu);
   };
 
+  const toggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
+    setShowProfileMenu(false); // Close profile menu when opening mobile menu
+  };
+
   // Build navigation links based on user role
   let navLinks = [];
 
@@ -92,9 +127,12 @@ export default function Navbar() {
       { path: "/tracking", label: "📍 Tracking", icon: "📍" }
     ];
   } else if (userData?.role === "admin") {
-    // Admin Navigation
+    // Admin Navigation - Enhanced with more admin features
     navLinks = [
-      { path: "/admin/products", label: "🔐 Admin", icon: "🔐" }
+      { path: "/admin/products", label: "🔐 Admin Panel", icon: "🔐" },
+      { path: "/admin/analytics", label: "📊 Analytics", icon: "📊" },
+      { path: "/admin/users", label: "👥 Users", icon: "👥" },
+      { path: "/admin/settings", label: "⚙️ Settings", icon: "⚙️" }
     ];
   } else {
     // Other Users Navigation
@@ -128,6 +166,7 @@ export default function Navbar() {
     if (userData?.role === "seller") {
       navLinks.push({ path: "/manage-products", label: "🛒 Manage Products", icon: "🛒" });
       navLinks.push({ path: "/add-product", label: "🧪 Add Product", icon: "🧪" });
+      navLinks.push({ path: "/plant-analysis", label: "🌿 Plant Analysis", icon: "🌿" });
     }
 
     // Add Cart - for users who can buy (farmers and buyers, not sellers)
@@ -151,31 +190,33 @@ export default function Navbar() {
     <>
       {/* Add padding to body to prevent content from being hidden behind navbar */}
       <div style={{
-        height: navbarVisible ? "70px" : "35px", // Half padding when navbar is halfway hidden
-        transition: "height 0.3s ease"
+        height: navbarVisible ? (isMobile ? "60px" : "70px") : (isMobile ? "30px" : "35px"),
+        transition: "height 0.2s ease-out"
       }} />
       
       <nav style={{
         position: "fixed",
-        top: navbarVisible ? "0" : "-35px", // Hide halfway (35px of 70px)
+        top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
+        height: isMobile ? "60px" : "70px",
         background: scrolled ? "rgba(255, 255, 255, 0.95)" : "rgba(255, 255, 255, 1)",
         backdropFilter: scrolled ? "blur(10px)" : "none",
         boxShadow: scrolled ? "0 2px 20px rgba(0,0,0,0.1)" : "none",
-        transition: "all 0.3s ease",
+        transition: "background 0.2s ease-out, backdrop-filter 0.2s ease-out, box-shadow 0.2s ease-out",
         borderBottom: scrolled ? "1px solid rgba(0,0,0,0.1)" : "1px solid var(--border-color)",
-        transform: navbarVisible ? "translateY(0)" : "translateY(-35px)" // Halfway transform
+        transform: navbarVisible ? "translateY(0)" : (isMobile ? "translateY(-30px)" : "translateY(-35px)"),
+        willChange: "transform"
       }}>
         <div style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "0 20px",
+          padding: isMobile ? "0 12px" : "0 16px", // Reduced from 20px to 16px
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          height: "70px"
+          height: isMobile ? "60px" : "70px"
         }}>
           {/* Logo */}
           {userData?.role === "delivery_partner" ? (
@@ -183,7 +224,7 @@ export default function Navbar() {
               to="/delivery-partner" 
               style={{
                 textDecoration: "none",
-                fontSize: "24px",
+                fontSize: isMobile ? "20px" : "24px",
                 fontWeight: "bold",
                 color: "var(--primary-blue)",
                 display: "flex",
@@ -198,7 +239,7 @@ export default function Navbar() {
               to="/seller" 
               style={{
                 textDecoration: "none",
-                fontSize: "24px",
+                fontSize: isMobile ? "20px" : "24px",
                 fontWeight: "bold",
                 color: "var(--primary-blue)",
                 display: "flex",
@@ -208,12 +249,27 @@ export default function Navbar() {
             >
               🏪 KisanSetu
             </Link>
+          ) : userData?.role === "admin" ? (
+            <Link 
+              to="/admin/products" 
+              style={{
+                textDecoration: "none",
+                fontSize: isMobile ? "18px" : "24px",
+                fontWeight: "bold",
+                color: "#d32f2f", // Admin red color
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              🔐 KisanSetu Admin
+            </Link>
           ) : (
             <Link 
               to="/crops" 
               style={{
                 textDecoration: "none",
-                fontSize: "24px",
+                fontSize: isMobile ? "20px" : "24px",
                 fontWeight: "bold",
                 color: "var(--primary-blue)",
                 display: "flex",
@@ -225,80 +281,334 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Navigation Links - Single Row */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flex: 1,
-            justifyContent: "center"
-          }}>
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                style={{
-                  textDecoration: "none",
-                  color: isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)",
-                  padding: "8px 16px",
-                  borderRadius: "var(--border-radius-sm)",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  transition: "all 0.3s ease",
-                  background: isActive(link.path) ? "var(--primary-blue)20" : "transparent",
-                  border: isActive(link.path) ? "1px solid var(--primary-blue)" : "1px solid transparent",
-                  whiteSpace: "nowrap"
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive(link.path)) {
-                    e.target.style.background = "rgba(0,0,0,0.05)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive(link.path)) {
-                    e.target.style.background = "transparent";
-                  }
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+          {/* Desktop Navigation Links */}
+          {!isMobile && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: userData?.role === "admin" ? "4px" : "6px", // Reduced from 6px/8px to 4px/6px
+              flex: 1,
+              justifyContent: "center",
+              flexWrap: "wrap" // Allow wrapping for admin links on smaller screens
+            }}>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  style={{
+                    textDecoration: "none",
+                    color: userData?.role === "admin" 
+                      ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
+                      : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
+                    padding: userData?.role === "admin" ? "4px 10px" : "6px 12px", // Reduced from 6px 12px / 8px 16px
+                    borderRadius: "var(--border-radius-sm)",
+                    fontSize: userData?.role === "admin" ? "13px" : "14px", // Smaller font for admin
+                    fontWeight: "500",
+                    transition: "all 0.3s ease",
+                    background: userData?.role === "admin" && isActive(link.path) 
+                      ? "rgba(211, 47, 47, 0.1)" 
+                      : isActive(link.path) 
+                      ? "var(--primary-blue)20" 
+                      : "transparent",
+                    border: userData?.role === "admin" && isActive(link.path)
+                      ? "1px solid #d32f2f"
+                      : isActive(link.path) 
+                      ? "1px solid var(--primary-blue)" 
+                      : "1px solid transparent",
+                    whiteSpace: "nowrap"
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive(link.path)) {
+                      e.target.style.background = userData?.role === "admin" 
+                        ? "rgba(211, 47, 47, 0.05)" 
+                        : "rgba(0,0,0,0.05)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive(link.path)) {
+                      e.target.style.background = "transparent";
+                    }
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
 
-          {/* Profile Section */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {/* Profile Button */}
-            <div style={{ position: "relative" }} ref={profileMenuRef}>
+          {/* Mobile Menu Button */}
+          {isMobile && (
+            <button
+              onClick={toggleMobileMenu}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                padding: "8px",
+                borderRadius: "var(--border-radius-sm)",
+                transition: "background 0.3s"
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "rgba(0,0,0,0.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "transparent";
+              }}
+            >
+              ☰
+            </button>
+          )}
+
+          {/* Desktop Profile Section */}
+          {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {/* Profile Button */}
+              <div style={{ position: "relative" }} ref={profileMenuRef}>
+                <button
+                  onClick={toggleProfileMenu}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: "transparent",
+                    border: "1px solid var(--border-color)",
+                    padding: "8px 12px",
+                    borderRadius: "var(--border-radius-sm)",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    transition: "background 0.3s",
+                    color: "var(--text-primary)"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "rgba(0,0,0,0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "transparent";
+                  }}
+                >
+                  {profilePhoto ? (
+                    <img
+                      src={`${API_BASE_URL}${profilePhoto}`}
+                      alt="Profile"
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        border: "2px solid rgba(255,255,255,0.3)"
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        if (!e.target.nextSibling || e.target.nextSibling.textContent !== "👤") {
+                          const span = document.createElement("span");
+                          span.textContent = "👤";
+                          e.target.parentElement.insertBefore(span, e.target);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: "18px" }}>👤</span>
+                  )}
+                  <span style={{ display: scrolled ? "none" : "block" }}>
+                    {userName || "Profile"}
+                  </span>
+                  <span style={{ fontSize: "12px", marginLeft: "4px" }}>
+                    {showProfileMenu ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {showProfileMenu && (
+                  <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: "0",
+                    marginTop: "8px",
+                    background: "white",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--border-radius-md)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                    minWidth: "180px",
+                    zIndex: 1001,
+                    overflow: "hidden"
+                  }}>
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowProfileMenu(false)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "12px 16px",
+                        textDecoration: "none",
+                        color: "var(--text-primary)",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        transition: "background 0.3s",
+                        borderBottom: "1px solid var(--border-color)"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = "rgba(0,0,0,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = "transparent";
+                      }}
+                    >
+                      <span>👤</span>
+                      <span>Profile</span>
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        width: "100%",
+                        padding: "12px 16px",
+                        background: "transparent",
+                        border: "none",
+                        color: "#dc3545",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        cursor: "pointer",
+                        transition: "background 0.3s"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = "rgba(220,53,69,0.1)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = "transparent";
+                      }}
+                    >
+                      <span>🚪</span>
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+        {isMobile && showMobileMenu && (
+          <div className="mobile-menu-container" style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            background: "white",
+            borderTop: "1px solid var(--border-color)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+            zIndex: 1000
+          }}>
+            {/* Mobile Menu Header with Close Button */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "12px 16px",
+              borderBottom: "1px solid var(--border-color)",
+              background: "rgba(0,0,0,0.02)"
+            }}>
+              <div style={{
+                fontSize: "16px",
+                fontWeight: "600",
+                color: "var(--text-primary)"
+              }}>
+                Menu
+              </div>
               <button
-                onClick={toggleProfileMenu}
+                onClick={() => setShowMobileMenu(false)}
                 style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  color: "var(--text-secondary)",
+                  transition: "all 0.2s ease",
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  background: "transparent",
-                  border: "1px solid var(--border-color)",
-                  padding: "8px 12px",
-                  borderRadius: "var(--border-radius-sm)",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  transition: "background 0.3s",
-                  color: "var(--text-primary)"
+                  justifyContent: "center",
+                  minWidth: "40px",
+                  minHeight: "40px"
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.background = "rgba(0,0,0,0.05)";
+                  e.target.style.backgroundColor = "rgba(0,0,0,0.1)";
+                  e.target.style.color = "var(--text-primary)";
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background = "transparent";
+                  e.target.style.backgroundColor = "transparent";
+                  e.target.style.color = "var(--text-secondary)";
                 }}
               >
+                ✕
+              </button>
+            </div>
+            
+            {/* Mobile Navigation Links */}
+            <div style={{
+              padding: "16px 12px",
+              borderBottom: "1px solid var(--border-color)"
+            }}>
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setShowMobileMenu(false)}
+                  style={{
+                    display: "block",
+                    textDecoration: "none",
+                    color: userData?.role === "admin" 
+                      ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
+                      : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
+                    padding: "12px 16px",
+                    borderRadius: "var(--border-radius-sm)",
+                    fontSize: "16px",
+                    fontWeight: "500",
+                    transition: "all 0.3s ease",
+                    background: userData?.role === "admin" && isActive(link.path)
+                      ? "rgba(211, 47, 47, 0.1)"
+                      : isActive(link.path)
+                      ? "var(--primary-blue)20"
+                      : "transparent",
+                    border: userData?.role === "admin" && isActive(link.path)
+                      ? "1px solid #d32f2f"
+                      : isActive(link.path)
+                      ? "1px solid var(--primary-blue)"
+                      : "1px solid transparent",
+                    marginBottom: "8px"
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Mobile Profile Section */}
+            <div style={{
+              padding: "16px 12px"
+            }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px 16px",
+                background: "rgba(0,0,0,0.02)",
+                borderRadius: "var(--border-radius-sm)",
+                marginBottom: "12px"
+              }}>
                 {profilePhoto ? (
                   <img
                     src={`${API_BASE_URL}${profilePhoto}`}
                     alt="Profile"
                     style={{
-                      width: "28px",
-                      height: "28px",
+                      width: "40px",
+                      height: "40px",
                       borderRadius: "50%",
                       objectFit: "cover",
                       border: "2px solid rgba(255,255,255,0.3)"
@@ -308,92 +618,94 @@ export default function Navbar() {
                       if (!e.target.nextSibling || e.target.nextSibling.textContent !== "👤") {
                         const span = document.createElement("span");
                         span.textContent = "👤";
+                        span.style.fontSize = "24px";
                         e.target.parentElement.insertBefore(span, e.target);
                       }
                     }}
                   />
                 ) : (
-                  <span style={{ fontSize: "18px" }}>👤</span>
+                  <span style={{ fontSize: "24px" }}>👤</span>
                 )}
-                <span style={{ display: scrolled ? "none" : "block" }}>
-                  {userName || "Profile"}
-                </span>
-                <span style={{ fontSize: "12px", marginLeft: "4px" }}>
-                  {showProfileMenu ? "▲" : "▼"}
-                </span>
-              </button>
-
-              {/* Profile Dropdown Menu */}
-              {showProfileMenu && (
-                <div style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: "0",
-                  marginTop: "8px",
-                  background: "white",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--border-radius-md)",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-                  minWidth: "180px",
-                  zIndex: 1001,
-                  overflow: "hidden"
-                }}>
-                  <Link
-                    to="/profile"
-                    onClick={() => setShowProfileMenu(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "12px 16px",
-                      textDecoration: "none",
-                      color: "var(--text-primary)",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      transition: "background 0.3s",
-                      borderBottom: "1px solid var(--border-color)"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "rgba(0,0,0,0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "transparent";
-                    }}
-                  >
-                    <span>👤</span>
-                    <span>Profile</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      width: "100%",
-                      padding: "12px 16px",
-                      background: "transparent",
-                      border: "none",
-                      color: "#dc3545",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      cursor: "pointer",
-                      transition: "background 0.3s"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "rgba(220,53,69,0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "transparent";
-                    }}
-                  >
-                    <span>🚪</span>
-                    <span>Logout</span>
-                  </button>
+                <div>
+                  <div style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "var(--text-primary)"
+                  }}>
+                    {userName || "User"}
+                  </div>
+                  <div style={{
+                    fontSize: "12px",
+                    color: "var(--text-secondary)"
+                  }}>
+                    {userData?.role || "User"}
+                  </div>
                 </div>
-              )}
+              </div>
+
+              <Link
+                to="/profile"
+                onClick={() => setShowMobileMenu(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "12px 16px",
+                  textDecoration: "none",
+                  color: "var(--text-primary)",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  transition: "background 0.3s",
+                  background: "transparent",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "var(--border-radius-sm)",
+                  marginBottom: "8px"
+                }}
+              >
+                <span>👤</span>
+                <span>Profile</span>
+              </Link>
+
+              <button
+                onClick={handleLogout}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  width: "100%",
+                  padding: "12px 16px",
+                  background: "transparent",
+                  border: "1px solid #dc3545",
+                  color: "#dc3545",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "background 0.3s",
+                  borderRadius: "var(--border-radius-sm)"
+                }}
+              >
+                <span>🚪</span>
+                <span>Logout</span>
+              </button>
             </div>
           </div>
-        </div>
+        )}
+        
+        {/* Mobile Menu Overlay Backdrop */}
+        {isMobile && showMobileMenu && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.5)",
+              zIndex: 999
+            }}
+            onClick={() => setShowMobileMenu(false)}
+          />
+        )}
       </nav>
     </>
   );

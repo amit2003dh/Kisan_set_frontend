@@ -6,6 +6,9 @@ import LiveMap from "../components/LiveMap";
 
 export default function AddCrop() {
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  
   const [crop, setCrop] = useState({ 
     name: "", 
     quantity: "", 
@@ -41,6 +44,25 @@ export default function AddCrop() {
   const [success, setSuccess] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [originalAddress, setOriginalAddress] = useState(""); // Store original address
+
+  // Check device type and orientation
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setIsMobile(width < 768);
+      setIsPortrait(height > width);
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    window.addEventListener('orientationchange', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+      window.removeEventListener('orientationchange', checkDevice);
+    };
+  }, []);
 
   // Load saved address from localStorage on component mount
   useEffect(() => {
@@ -284,24 +306,58 @@ export default function AddCrop() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px", maxWidth: "600px" }}>
+    <div className="container" style={{ 
+      paddingTop: isMobile ? (isPortrait ? "20px" : "16px") : "40px", 
+      paddingBottom: isMobile ? (isPortrait ? "20px" : "16px") : "40px",
+      maxWidth: isMobile ? "100%" : (isPortrait ? "100%" : "600px"),
+      margin: isMobile ? "0" : "0 auto",
+      padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "40px 20px"
+    }}>
       <div className="page-header">
-        <h1>➕ Add New Crop</h1>
-        <p>List your crop for sale on the marketplace</p>
+        <h1 style={{ 
+          fontSize: isMobile ? (isPortrait ? "24px" : "20px") : "32px",
+          marginBottom: isMobile ? "8px" : "12px"
+        }}>
+          ➕ Add New Crop
+        </h1>
+        <p style={{ 
+          fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "16px",
+          color: "var(--text-secondary)"
+        }}>
+          List your crop for sale on the marketplace
+        </p>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ 
+        padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "24px"
+      }}>
         <form onSubmit={submit}>
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+          {error && (
+            <div className="error-message" style={{
+              fontSize: isMobile ? "14px" : "16px",
+              padding: isMobile ? "12px 16px" : "16px",
+              marginBottom: "16px"
+            }}>
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="success-message" style={{
+              fontSize: isMobile ? "14px" : "16px",
+              padding: isMobile ? "12px 16px" : "16px",
+              marginBottom: "16px"
+            }}>
+              {success}
+            </div>
+          )}
 
-          <div style={{ marginBottom: "24px" }}>
+          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
             <label style={{
               display: "block",
-              marginBottom: "8px",
+              marginBottom: isMobile ? "6px" : "8px",
               color: "var(--text-primary)",
               fontWeight: "600",
-              fontSize: "14px"
+              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
             }}>
               Crop Name *
             </label>
@@ -313,16 +369,20 @@ export default function AddCrop() {
               onChange={handleChange}
               disabled={loading}
               required
+              style={{
+                fontSize: isMobile ? "16px" : "14px", // Prevents zoom on iOS
+                padding: isMobile ? "12px" : "10px"
+              }}
             />
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
+          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
             <label style={{
               display: "block",
-              marginBottom: "8px",
+              marginBottom: isMobile ? "6px" : "8px",
               color: "var(--text-primary)",
               fontWeight: "600",
-              fontSize: "14px"
+              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
             }}>
               Quantity (kg) *
             </label>
@@ -337,16 +397,20 @@ export default function AddCrop() {
               onChange={handleChange}
               disabled={loading}
               required
+              style={{
+                fontSize: isMobile ? "16px" : "14px",
+                padding: isMobile ? "12px" : "10px"
+              }}
             />
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
+          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
             <label style={{
               display: "block",
-              marginBottom: "8px",
+              marginBottom: isMobile ? "6px" : "8px",
               color: "var(--text-primary)",
               fontWeight: "600",
-              fontSize: "14px"
+              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
             }}>
               Price per kg (₹) *
             </label>
@@ -354,23 +418,27 @@ export default function AddCrop() {
               className="input"
               name="price"
               type="number"
-              min="1"
+              min="0"
               step="0.01"
               placeholder="Enter price per kg"
               value={crop.price}
               onChange={handleChange}
               disabled={loading}
               required
+              style={{
+                fontSize: isMobile ? "16px" : "14px",
+                padding: isMobile ? "12px" : "10px"
+              }}
             />
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
+          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
             <label style={{
               display: "block",
-              marginBottom: "8px",
+              marginBottom: isMobile ? "6px" : "8px",
               color: "var(--text-primary)",
               fontWeight: "600",
-              fontSize: "14px"
+              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
             }}>
               Harvest Date
             </label>
@@ -381,20 +449,35 @@ export default function AddCrop() {
               value={crop.harvestDate}
               onChange={handleChange}
               disabled={loading}
+              style={{
+                fontSize: isMobile ? "16px" : "14px",
+                padding: isMobile ? "12px" : "10px"
+              }}
             />
           </div>
 
           {/* Location Section */}
-          <div style={{ marginBottom: "32px", padding: "20px", background: "var(--background)", borderRadius: "var(--border-radius-sm)" }}>
-            <h3 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>📍 Farm Location</h3>
+          <div style={{ 
+            marginBottom: isMobile ? (isPortrait ? "28px" : "24px") : "32px", 
+            padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "20px", 
+            background: "var(--background)", 
+            borderRadius: "var(--border-radius-sm)" 
+          }}>
+            <h3 style={{ 
+              marginBottom: isMobile ? "12px" : "16px", 
+              color: "var(--text-primary)",
+              fontSize: isMobile ? (isPortrait ? "18px" : "16px") : "20px"
+            }}>
+              📍 Farm Location
+            </h3>
             
-            <div style={{ marginBottom: "16px" }}>
+            <div style={{ marginBottom: isMobile ? (isPortrait ? "16px" : "12px") : "16px" }}>
               <label style={{
                 display: "block",
-                marginBottom: "8px",
+                marginBottom: isMobile ? "6px" : "8px",
                 color: "var(--text-primary)",
                 fontWeight: "600",
-                fontSize: "14px"
+                fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
               }}>
                 Farm Address *
               </label>
@@ -406,18 +489,27 @@ export default function AddCrop() {
                 onChange={handleLocationChange}
                 disabled={loading}
                 required
-                rows={2}
+                rows={isMobile ? (isPortrait ? "3" : "2") : "2"}
+                style={{
+                  fontSize: isMobile ? "16px" : "14px",
+                  padding: isMobile ? "12px" : "10px"
+                }}
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: isMobile ? (isPortrait ? "1fr" : "1fr 1fr") : "1fr 1fr 1fr", 
+              gap: isMobile ? "8px" : "12px", 
+              marginBottom: isMobile ? (isPortrait ? "16px" : "12px") : "16px" 
+            }}>
               <div>
                 <label style={{
                   display: "block",
-                  marginBottom: "8px",
+                  marginBottom: isMobile ? "6px" : "8px",
                   color: "var(--text-primary)",
                   fontWeight: "600",
-                  fontSize: "14px"
+                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
                 }}>
                   City
                 </label>
@@ -428,15 +520,19 @@ export default function AddCrop() {
                   value={crop.location.city}
                   onChange={handleLocationChange}
                   disabled={loading}
+                  style={{
+                    fontSize: isMobile ? "16px" : "14px",
+                    padding: isMobile ? "12px" : "10px"
+                  }}
                 />
               </div>
               <div>
                 <label style={{
                   display: "block",
-                  marginBottom: "8px",
+                  marginBottom: isMobile ? "6px" : "8px",
                   color: "var(--text-primary)",
                   fontWeight: "600",
-                  fontSize: "14px"
+                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
                 }}>
                   State
                 </label>
@@ -447,15 +543,19 @@ export default function AddCrop() {
                   value={crop.location.state}
                   onChange={handleLocationChange}
                   disabled={loading}
+                  style={{
+                    fontSize: isMobile ? "16px" : "14px",
+                    padding: isMobile ? "12px" : "10px"
+                  }}
                 />
               </div>
               <div>
                 <label style={{
                   display: "block",
-                  marginBottom: "8px",
+                  marginBottom: isMobile ? "6px" : "8px",
                   color: "var(--text-primary)",
                   fontWeight: "600",
-                  fontSize: "14px"
+                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
                 }}>
                   Pincode
                 </label>
@@ -466,6 +566,10 @@ export default function AddCrop() {
                   value={crop.location.pincode}
                   onChange={handleLocationChange}
                   disabled={loading}
+                  style={{
+                    fontSize: isMobile ? "16px" : "14px",
+                    padding: isMobile ? "12px" : "10px"
+                  }}
                 />
               </div>
             </div>
@@ -513,7 +617,7 @@ export default function AddCrop() {
                     style={{
                       padding: "6px 12px",
                       background: loading || !crop.location.address ? "var(--border-color)" : "var(--primary-blue)",
-                      color: loading || !crop.location.address ? "var(--text-secondary)" : "white",
+                      color: loading || !crop.location.address ? "var(--text-secondary)" : "brown",
                       border: "none",
                       borderRadius: "var(--border-radius-sm)",
                       cursor: loading || !crop.location.address ? "not-allowed" : "pointer",
@@ -523,7 +627,7 @@ export default function AddCrop() {
                   >
                     🎯 Predict from Address
                   </button>
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => {
                       // Only fill if farm address is empty
@@ -556,7 +660,7 @@ export default function AddCrop() {
                     }}
                   >
                     🧪 Test Address
-                  </button>
+                  </button> */}
                   <button
                     type="button"
                     onClick={() => setUseCurrentLocation(!useCurrentLocation)}
@@ -564,7 +668,7 @@ export default function AddCrop() {
                     style={{
                       padding: "6px 12px",
                       background: useCurrentLocation ? "var(--success)" : "var(--primary-blue)",
-                      color: "white",
+                      color: "blue",
                       border: "none",
                       borderRadius: "var(--border-radius-sm)",
                       cursor: loading ? "not-allowed" : "pointer",
@@ -881,20 +985,30 @@ export default function AddCrop() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "16px" }}>
+          <div style={{ 
+            display: "flex", 
+            gap: isMobile ? "12px" : "16px",
+            flexDirection: isMobile ? (isPortrait ? "column" : "row") : "row"
+          }}>
             <button
               type="submit"
               className="btn btn-primary"
               disabled={loading}
-              style={{ flex: 1 }}
+              style={{ 
+                flex: 1,
+                fontSize: isMobile ? (isPortrait ? "16px" : "14px") : "16px",
+                padding: isMobile ? (isPortrait ? "14px 20px" : "12px 16px") : "12px 24px",
+                minHeight: isMobile ? "48px" : "44px"
+              }}
             >
               {loading ? (
                 <>
                   <div className="loading-spinner" style={{
-                    width: "20px",
-                    height: "20px",
+                    width: isMobile ? "18px" : "20px",
+                    height: isMobile ? "18px" : "20px",
                     borderWidth: "2px",
-                    margin: "0"
+                    margin: "0 8px 0 0",
+                    display: "inline-block"
                   }}></div>
                   Adding...
                 </>
@@ -907,6 +1021,11 @@ export default function AddCrop() {
               className="btn btn-secondary"
               onClick={() => navigate("/crops")}
               disabled={loading}
+              style={{
+                fontSize: isMobile ? (isPortrait ? "16px" : "14px") : "16px",
+                padding: isMobile ? (isPortrait ? "14px 20px" : "12px 16px") : "12px 24px",
+                minHeight: isMobile ? "48px" : "44px"
+              }}
             >
               Cancel
             </button>

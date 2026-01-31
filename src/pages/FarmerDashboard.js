@@ -164,28 +164,30 @@ console.log("Logged in user:", user);
       const transcript = bestTranscript.trim();
       console.log("Final transcript:", transcript, "Confidence:", bestConfidence);
 
-      if (!transcript) {
-        setVoiceResult("❌ Could not understand your speech. Please try again speaking clearly.");
-        return;
-      }
-
-      setVoiceResult(`✅ You said: "${transcript}"\n🔄 Processing your request...`);
-
-      try {
-        // Only predefined greetings - everything else goes to Gemini AI
-        const lowerTranscript = transcript.toLowerCase().trim();
-        
-        // Check for basic greetings only
-        if (lowerTranscript.match(/^(नमस्ते|hello|hi|hey|good morning|good afternoon|good evening|namaste)/)) {
-          const greetingResponse = "नमस्ते किसान भाई! मैं आपकी खेती मदद के लिए यहाँ हूं। कृपया अपनी समस्या बताएं।";
-          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${greetingResponse}`);
-          speakResponse(greetingResponse);
+        if (!transcript) {
+          setVoiceResult("❌ Could not understand your speech. Please try again speaking clearly.");
           return;
         }
-        
-        // All other queries go directly to Gemini AI
-        const enhancedPrompt = `
-You are an expert agriculture assistant for KisanSetu platform, specifically designed to help Indian farmers with practical farming advice. A farmer said: "${transcript}"
+
+        setVoiceResult(`✅ You said: "${transcript}"\n🔄 Processing your request...`);
+
+        try {
+          // Only predefined greetings - everything else goes to Gemini AI
+          const lowerTranscript = transcript.toLowerCase().trim();
+          
+          // Check for basic greetings only
+          if (lowerTranscript.match(/^(नमस्ते|hello|hi|hey|good morning|good afternoon|good evening|namaste)/)) {
+            const greetingResponse = "नमस्ते किसान भाई! मैं आपकी खेती मदद के लिए यहाँ हूं। कृपया अपनी समस्या बताएं।";
+            setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${greetingResponse}`);
+            speakResponse(greetingResponse);
+            return;
+          }
+
+          // Enhanced prompt for better farming assistance
+          const enhancedPrompt = `
+You are an expert agriculture assistant for KisanSetu platform, specifically designed to help Indian farmers with practical farming advice.
+
+A farmer said: "${transcript.trim()}"
 
 Your task:
 - Provide SPECIFIC, ACTIONABLE advice for farmers
@@ -196,43 +198,59 @@ Your task:
 - Include specific next steps when possible
 - NO PHOTO REQUESTS - This is voice-only assistance
 
-IMPORTANT: Always provide specific, actionable advice that farmers can implement immediately. If you need more information, ask specific questions. Avoid vague responses.
+Farmer-Specific Response Guidelines:
+- For crop health: Ask for crop name, symptoms, and photos. Suggest specific treatments.
+- For market prices: Ask for crop name and location. Give current market trends.
+- For orders: Direct to dashboard with specific steps.
+- For pesticides: Ask for crop and pest type. Recommend safe, approved options.
+- For fertilizers: Ask for soil type and crop. Suggest NPK ratios.
+- For weather: Ask for location. Give 7-day forecast and farming advice.
+- For irrigation: Ask for crop and soil moisture. Give water-saving tips.
+- For seeds: Ask for crop and season. Recommend high-yield varieties.
 
 Example responses:
 - "मेरी फसल पीली है" → "आपकी फसल की पीली रोग के लिए नीम तेल 5ml प्रति लीटर पानी में मिलाकर स्प्रे करें। फसल का नाम और पत्ते बताएं ताकि मैं उपचारित उपाय सुझा सकूं।"
 - "गेहूं का भाव" → "आज गेहूं का भाव ₹2500-2800 प्रति क्विंटल है। अपनी फसल की गुणवत्ता के अनुसार बेहतर भाव पाएं। बाजार समिति के लिए सुबह 10 बजे पर जाएं।"
 - "मेरा ऑर्डर कहाँ है" → "अपने ऑर्डर की स्थिति देखने के लिए डैशबोर्ड पर 'ऑर्डर' सेक्शन पर जाएं। आप वहां ट्रैकिंग नंबर से अपना ऑर्डर ट्रैक कर सकते हैं।"
+
+IMPORTANT: Always provide specific, actionable advice that farmers can implement immediately. Avoid vague responses. If you need more information, ask specific questions.
 `;
 
-        const { data, error: err } = await apiCall(() => 
-          API.post("/gemini/voice-intent", { 
-            text: transcript,
-            prompt: enhancedPrompt 
-          })
-        );
-        
-        if (err) {
-          console.error("API Error:", err);
-          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं। कृपया अपनी समस्या स्पष्ट रूप से बताएं।`);
-          speakResponse("कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं।");
-        } else if (data?.success && data?.intent) {
-          // Success - AI provided response
-          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${data.intent}`);
-          speakResponse(data.intent);
-        } else if (data?.fallback) {
-          // Gemini failed but provided fallback
-          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 AI सहायता अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर से प्रयास करें।`);
-          speakResponse("AI सहायता अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर से प्रयास करें।");
-        } else {
-          // Gemini didn't provide a valid response
-          setVoiceResult(`✅ You said: "${transcript}"\n\n💡 AI से कोई प्रतिक्रिया नहीं मिली। कृपया अपना प्रश्न फिर से बताएं।`);
-          speakResponse("AI से कोई प्रतिक्रिया नहीं मिली। कृपया अपना प्रश्न फिर से बताएं।");
+          console.log("🎤 Making API call to Gemini with transcript:", transcript);
+          
+          const { data, error: err } = await apiCall(() => 
+            API.post("/gemini/voice-intent", { 
+              text: transcript,
+              prompt: enhancedPrompt 
+            })
+          );
+          
+          console.log("🤖 Gemini API Response:", { data, error: err });
+          
+          // Extract the actual data from the apiCall wrapper
+          const responseData = data?.data || data;
+          
+          if (err) {
+            console.error("❌ API Error:", err);
+            const errorMessage = err?.message || err || "Unknown error occurred";
+            setVoiceResult(`✅ You said: "${transcript}"\n\n❌ AI Error: ${errorMessage}\n\n💡 कृपया बाद में फिर से कोशिश करें।`);
+            speakResponse("AI सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया बाद में फिर से कोशिश करें।");
+          } else if (responseData?.success && responseData?.intent) {
+            // Success - AI provided response
+            console.log("✅ Success - AI Response:", responseData.intent);
+            setVoiceResult(`✅ You said: "${transcript}"\n\n💡 ${responseData.intent}`);
+            speakResponse(responseData.intent);
+          } else {
+            // Gemini AI not available - no fallback
+            console.log("❌ Gemini AI not available:", responseData);
+            setVoiceResult(`✅ You said: "${transcript}"\n\n❌ AI सेवा अस्थायी रूप से उपलब्ध नहीं है।\n\n💡 कृपया कुछ देर बाद फिर से प्रयास करें।`);
+            speakResponse("AI सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया बाद में फिर से कोशिश करें।");
+          }
+        } catch (error) {
+          console.error("❌ Voice intent error:", error);
+          setVoiceResult(`✅ You said: "${transcript}"\n\n❌ Network Error: ${error.message}\n\n💡 कृपया अपना इंटरनेट कनेक्शन जांचें और फिर से कोशिश करें।`);
+          speakResponse("नेटवर्क समस्या आई है। कृपया इंटरनेट कनेक्शन जांचें।");
         }
-      } catch (error) {
-        console.error("Voice intent error:", error);
-        setVoiceResult(`✅ You said: "${transcript}"\n\n💡 कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं। कृपया अपनी समस्या स्पष्ट रूप से बताएं।`);
-        speakResponse("कृपया आपकी खेती मदद के लिए यहाँ समस्या का समाधान कर सकते हैं।");
-      }
     };
 
     recognition.onerror = (e) => {
