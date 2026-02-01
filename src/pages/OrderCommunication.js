@@ -57,7 +57,8 @@ export default function OrderCommunication() {
       if (err) {
         setError(err);
       } else {
-        setMessages(data.messages || []);
+        // Backend returns messages array directly, not wrapped in data.messages
+        setMessages(data || []);
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -69,22 +70,30 @@ export default function OrderCommunication() {
     if (!newMessage.trim()) return;
 
     try {
+      const messageData = {
+        message: newMessage.trim(),
+        senderType: currentUser.role // 'buyer' or 'seller'
+      };
+      
+      console.log("📝 Sending message with data:", messageData);
+      console.log("🔍 Current user:", currentUser);
+      console.log("🔍 Order ID:", orderId);
+
       const { data, error: err } = await apiCall(() =>
-        API.post(`/orders/${orderId}/message`, {
-          message: newMessage.trim(),
-          senderType: currentUser.role // 'buyer' or 'seller'
-        })
+        API.post(`/orders/${orderId}/message`, messageData)
       );
 
       if (err) {
+        console.error("❌ API Error:", err);
         setError(err);
       } else {
+        console.log("✅ Message sent successfully:", data);
         setNewMessage("");
         // Refresh messages to get the new one
         fetchMessages();
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("❌ Error sending message:", error);
       setError("Failed to send message");
     }
   };
@@ -213,12 +222,12 @@ export default function OrderCommunication() {
             <div>
               <h4 style={{ marginBottom: "8px", color: "var(--text-secondary)" }}>Delivery Address</h4>
               <div style={{ padding: "12px", background: "var(--background)", borderRadius: "8px" }}>
-                {order.deliveryAddress ? (
+                {order.deliveryInfo?.deliveryAddress ? (
                   <>
-                    <p><strong>Address:</strong> {order.deliveryAddress.address}</p>
-                    <p><strong>City:</strong> {order.deliveryAddress.city}</p>
-                    <p><strong>State:</strong> {order.deliveryAddress.state}</p>
-                    <p><strong>Pincode:</strong> {order.deliveryAddress.pincode}</p>
+                    <p><strong>Address:</strong> {order.deliveryInfo.deliveryAddress.address}</p>
+                    <p><strong>City:</strong> {order.deliveryInfo.deliveryAddress.city}</p>
+                    <p><strong>State:</strong> {order.deliveryInfo.deliveryAddress.state}</p>
+                    <p><strong>Pincode:</strong> {order.deliveryInfo.deliveryAddress.pincode}</p>
                   </>
                 ) : (
                   <p>Address not provided</p>

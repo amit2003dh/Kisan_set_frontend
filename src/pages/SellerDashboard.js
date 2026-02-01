@@ -12,6 +12,43 @@ export default function SellerDashboard() {
   const [userLocation, setUserLocation] = useState({ lat: 0, lng: 0, address: "" });
   const [useLiveLocation, setUseLiveLocation] = useState(false);
   const [locationError, setLocationError] = useState("");
+  
+  // Mobile detection states
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(true);
+
+  // Mobile detection and responsive handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
+  }, []);
+
+  // Auto-redirect for products tab
+  useEffect(() => {
+    if (activeTab === "products") {
+      // Immediate redirect without delay
+      navigate("/manage-products");
+    }
+  }, [activeTab, navigate]);
+
+  // Auto-redirect for analytics tab
+  useEffect(() => {
+    if (activeTab === "analytics") {
+      // Immediate redirect without delay
+      navigate("/seller-orders?view=analytics");
+    }
+  }, [activeTab, navigate]);
 
   // Load saved location on component mount
   useEffect(() => {
@@ -46,7 +83,7 @@ export default function SellerDashboard() {
     setError("");
     
     const { data, error: err } = await apiCall(() =>
-      API.get("/tracker/dashboard")
+      API.get("/orders/seller")
     );
     
     if (err) {
@@ -75,21 +112,87 @@ export default function SellerDashboard() {
     );
   }
 
-  const { overview, recentActivities, topProducts, recentChats } = dashboardData;
+  // Calculate dashboard stats from orders
+  const calculateStats = (orders) => {
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const productSales = orders.filter(order => order.orderType === "product_purchase").length;
+    const deliveredOrders = orders.filter(order => order.status === "Delivered").length;
+    const pendingOrders = orders.filter(order => order.status === "Confirmed").length;
+    
+    return {
+      totalOrders,
+      totalRevenue,
+      productSales,
+      deliveredOrders,
+      pendingOrders
+    };
+  };
+
+  const stats = calculateStats(dashboardData || []);
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
+    <div className="container" style={{ 
+      paddingTop: isMobile ? "20px" : "40px", 
+      paddingBottom: isMobile ? "20px" : "40px",
+      paddingLeft: isMobile ? "16px" : "20px",
+      paddingRight: isMobile ? "16px" : "20px",
+      minHeight: "100vh",
+      background: isMobile 
+        ? "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
+        : "var(--background)"
+    }}>
       <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: isMobile ? "flex-start" : "center",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? "16px" : "0"
+        }}>
           <div>
-            <h1>🏪 Seller Dashboard</h1>
-            <p>Manage your products and track sales performance</p>
+            <h1 style={{ 
+              fontSize: isMobile ? "24px" : "32px",
+              marginBottom: isMobile ? "8px" : "0"
+            }}>🏪 Seller Dashboard</h1>
+            <p style={{ 
+              fontSize: isMobile ? "14px" : "16px",
+              color: "var(--text-secondary)",
+              margin: 0
+            }}>Manage your products and track sales performance</p>
           </div>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+          <div style={{ 
+            display: "flex", 
+            gap: isMobile ? "8px" : "12px",
+            flexDirection: isMobile ? "column" : "row",
+            width: isMobile ? "100%" : "auto"
+          }}>
+            <Link 
+              to="/seller-orders" 
+              className="btn btn-primary" 
+              style={{ 
+                fontSize: isMobile ? "12px" : "14px", 
+                padding: isMobile ? "12px 16px" : "10px 20px",
+                width: isMobile ? "100%" : "auto",
+                textAlign: "center",
+                justifyContent: "center",
+                alignItems: "center"
+              }}
+            >
               📦 View Orders
             </Link>
-            <Link to="/add-product" className="btn btn-secondary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+            <Link 
+              to="/add-product" 
+              className="btn btn-secondary" 
+              style={{ 
+                fontSize: isMobile ? "12px" : "14px", 
+                padding: isMobile ? "12px 16px" : "10px 20px",
+                width: isMobile ? "100%" : "auto",
+                textAlign: "center",
+                justifyContent: "center",
+                alignItems: "center"
+              }}
+            >
               ➕ Add Product
             </Link>
           </div>
@@ -99,28 +202,42 @@ export default function SellerDashboard() {
       {/* Tabs */}
       <div style={{ 
         display: "flex", 
-        gap: "8px", 
-        marginBottom: "32px",
+        gap: isMobile ? "4px" : "8px", 
+        marginBottom: isMobile ? "24px" : "32px",
         borderBottom: "1px solid var(--border-color)",
-        paddingBottom: "16px"
+        paddingBottom: "16px",
+        overflowX: "auto",
+        WebkitOverflowScrolling: "touch"
       }}>
-        {["overview", "products", "chats", "analytics", "location"].map((tab) => (
+        {["overview", "products", "analytics", "location"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`btn ${activeTab === tab ? "btn-primary" : "btn-outline"}`}
             style={{ 
-              padding: "8px 16px",
+              padding: isMobile ? "10px 12px" : "8px 16px",
               borderRadius: "var(--border-radius-sm)",
-              fontSize: "14px",
-              textTransform: "capitalize"
+              fontSize: isMobile ? "12px" : "14px",
+              textTransform: "capitalize",
+              whiteSpace: "nowrap",
+              minWidth: isMobile ? "auto" : "120px"
             }}
           >
-            {tab === "overview" && "📊 Overview"}
-            {tab === "products" && "🌾 Products"}
-            {tab === "chats" && "💬 Chats"}
-            {tab === "analytics" && "📈 Analytics"}
-            {tab === "location" && "📍 Location"}
+            {isMobile ? (
+              <>
+                {tab === "overview" && "📊"}
+                {tab === "products" && "🌾"}
+                {tab === "analytics" && "📈"}
+                {tab === "location" && "📍"}
+              </>
+            ) : (
+              <>
+                {tab === "overview" && "📊 Overview"}
+                {tab === "products" && "🌾 Products"}
+                {tab === "analytics" && "📈 Analytics"}
+                {tab === "location" && "📍 Location"}
+              </>
+            )}
           </button>
         ))}
       </div>
@@ -129,213 +246,129 @@ export default function SellerDashboard() {
       {activeTab === "overview" && (
         <div>
           {/* Stats Cards */}
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Total Products</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>{overview.totalProducts}</p>
-              <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{overview.activeProducts} active</p>
+          <div className="grid" style={{ 
+            gridTemplateColumns: isMobile 
+              ? (isPortrait ? "repeat(2, 1fr)" : "repeat(2, 1fr)")
+              : "repeat(auto-fit, minmax(200px, 1fr))", 
+            gap: isMobile ? "12px" : "20px", 
+            marginBottom: isMobile ? "24px" : "32px" 
+          }}>
+            <div className="card" style={{ 
+              padding: isMobile ? "16px" : "20px",
+              transition: "all 0.3s ease",
+              transform: "translateY(0)",
+              boxShadow: isMobile 
+                ? "0 2px 8px rgba(0,0,0,0.1)" 
+                : "0 4px 6px rgba(0,0,0,0.1)",
+              ":hover": {
+                transform: isMobile ? "translateY(-2px)" : "translateY(-4px)",
+                boxShadow: isMobile 
+                  ? "0 4px 12px rgba(0,0,0,0.15)" 
+                  : "0 8px 15px rgba(0,0,0,0.2)"
+              }
+            }}>
+              <h3 style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px", marginBottom: "8px" }}>Total Orders</h3>
+              <p style={{ fontSize: isMobile ? "24px" : "32px", fontWeight: "700", color: "var(--primary-green)" }}>{stats.totalOrders}</p>
+              <p style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>All time</p>
             </div>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Total Views</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-blue)" }}>{overview.totalViews}</p>
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h3 style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px", marginBottom: "8px" }}>Total Revenue</h3>
+              <p style={{ fontSize: isMobile ? "24px" : "32px", fontWeight: "700", color: "var(--primary-blue)" }}>₹{stats.totalRevenue.toFixed(2)}</p>
+              <p style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>From sales</p>
             </div>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Inquiries</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--warning)" }}>{overview.totalInquiries}</p>
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h3 style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px", marginBottom: "8px" }}>Product Sales</h3>
+              <p style={{ fontSize: isMobile ? "24px" : "32px", fontWeight: "700", color: "var(--primary-purple)" }}>{stats.productSales}</p>
+              <p style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>🛒 Products sold</p>
             </div>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Orders</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--success)" }}>{overview.totalOrders}</p>
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h3 style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px", marginBottom: "8px" }}>Delivered</h3>
+              <p style={{ fontSize: isMobile ? "24px" : "32px", fontWeight: "700", color: "var(--success)" }}>{stats.deliveredOrders}</p>
+              <p style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>✅ Completed</p>
             </div>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Revenue</h3>
-              <p 
-                style={{ 
-                  fontSize: "32px", 
-                  fontWeight: "700", 
-                  color: "var(--primary-green)",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  textDecorationColor: "var(--primary-green)",
-                  textUnderlineOffset: "4px"
-                }}
-                onClick={() => navigate("/revenue-details")}
-              >
-                ₹{overview.totalRevenue}
-              </p>
-            </div>
-            <div className="card">
-              <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Active Chats</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--info)" }}>{overview.activeChats}</p>
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h3 style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px", marginBottom: "8px" }}>Pending</h3>
+              <p style={{ fontSize: isMobile ? "24px" : "32px", fontWeight: "700", color: "var(--warning)" }}>{stats.pendingOrders}</p>
+              <p style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>⏳ Processing</p>
             </div>
           </div>
 
-          {/* Recent Activity */}
-          <div className="card" style={{ marginBottom: "32px" }}>
-            <h3 style={{ marginBottom: "20px" }}>📋 Recent Activity</h3>
-            <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-              {recentActivities.length === 0 ? (
-                <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "20px" }}>
-                  No recent activity
+          {/* Recent Orders */}
+          <div className="card" style={{ marginBottom: isMobile ? "24px" : "32px", padding: isMobile ? "16px" : "20px" }}>
+            <h3 style={{ marginBottom: isMobile ? "16px" : "20px", fontSize: isMobile ? "18px" : "20px" }}>📦 Recent Orders</h3>
+            <div style={{ maxHeight: isMobile ? "250px" : "300px", overflowY: "auto" }}>
+              {dashboardData && dashboardData.length === 0 ? (
+                <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: isMobile ? "16px" : "20px", fontSize: isMobile ? "14px" : "16px" }}>
+                  No orders yet
                 </p>
               ) : (
-                recentActivities.map((activity, index) => (
+                dashboardData && dashboardData.slice(0, 5).map((order, index) => (
                   <div key={index} style={{
-                    padding: "12px",
+                    padding: isMobile ? "12px" : "12px",
                     borderBottom: "1px solid var(--border-color)",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: isMobile ? "flex-start" : "center",
+                    flexDirection: isMobile ? "column" : "row",
+                    gap: isMobile ? "8px" : "0"
                   }}>
-                    <div>
-                      <p style={{ margin: 0, fontWeight: "500" }}>
-                        {activity.eventType === "viewed" && "👁️ Product viewed"}
-                        {activity.eventType === "inquired" && "💬 New inquiry"}
-                        {activity.eventType === "ordered" && "🛒 New order"}
-                        {activity.eventType === "created" && "➕ Product created"}
-                        {activity.eventType === "updated" && "✏️ Product updated"}
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: "500", fontSize: isMobile ? "14px" : "16px" }}>
+                        🛒 Product Sale
                       </p>
-                      <p style={{ margin: 0, fontSize: "12px", color: "var(--text-secondary)" }}>
-                        {activity.description}
+                      <p style={{ margin: "4px 0 0 0", fontSize: isMobile ? "12px" : "14px", color: "var(--text-secondary)" }}>
+                        {order.items?.[0]?.name || "Product"} - ₹{order.total?.toFixed(2)}
                       </p>
                     </div>
-                    <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                      {new Date(activity.timestamp).toLocaleString()}
-                    </span>
+                    <div style={{ 
+                      textAlign: isMobile ? "left" : "right",
+                      display: "flex",
+                      flexDirection: isMobile ? "row" : "column",
+                      alignItems: isMobile ? "center" : "flex-end",
+                      gap: isMobile ? "8px" : "4px"
+                    }}>
+                      <span style={{
+                        padding: isMobile ? "6px 10px" : "4px 8px",
+                        borderRadius: "12px",
+                        fontSize: isMobile ? "11px" : "12px",
+                        background: order.status === "Delivered" ? "var(--success)" : 
+                                     order.status === "Confirmed" ? "var(--primary-blue)" : "var(--warning)",
+                        color: "white",
+                        whiteSpace: "nowrap"
+                      }}>
+                        {order.status}
+                      </span>
+                      <div style={{ fontSize: isMobile ? "11px" : "12px", color: "var(--text-secondary)" }}>
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           </div>
-
-          {/* Top Products */}
-          <div className="card">
-            <h3 style={{ marginBottom: "20px" }}>🏆 Top Performing Products</h3>
-            {topProducts.length === 0 ? (
-              <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "20px" }}>
-                No products available
-              </p>
-            ) : (
-              <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "16px" }}>
-                {topProducts.map((product, index) => (
-                  <div key={product._id} style={{
-                    padding: "16px",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "var(--border-radius-sm)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <div>
-                      <h4 style={{ margin: "0 0 8px 0" }}>{product.name}</h4>
-                      <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
-                        {product.quantity} {product.unit || "kg"} available
-                      </p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ margin: "0 0 4px 0", fontSize: "14px" }}>
-                        <strong>{product.stats.orders}</strong> orders
-                      </p>
-                      <p style={{ margin: 0, fontSize: "14px", color: "var(--success)" }}>
-                        ₹{product.stats.revenue}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Products Tab */}
-      {activeTab === "products" && (
-        <div>
-          <div style={{ marginBottom: "24px" }}>
-            <h3>🌾 Your Products</h3>
-          </div>
-          <div className="card">
-            <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "40px" }}>
-              Product management interface coming soon...
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Chats Tab */}
-      {activeTab === "chats" && (
-        <div>
-          <h3 style={{ marginBottom: "24px" }}>💬 Customer Chats</h3>
-          {recentChats.length === 0 ? (
-            <div className="card">
-              <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "40px" }}>
-                No active chats
-              </p>
-            </div>
-          ) : (
-            <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "16px" }}>
-              {recentChats.map((chat) => (
-                <div key={chat._id} className="card">
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "16px"
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        background: "var(--primary-green)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "white",
-                        fontWeight: "600"
-                      }}>
-                        {chat.customerId?.name?.charAt(0) || "C"}
                       </div>
-                      <div>
-                        <h4 style={{ margin: "0 0 4px 0" }}>{chat.customerId?.name || "Customer"}</h4>
-                        <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
-                          {chat.subject}
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "var(--text-secondary)" }}>
-                        {new Date(chat.lastActivityAt).toLocaleString()}
-                      </p>
-                      {chat.unreadCounts?.seller > 0 && (
-                        <span style={{
-                          background: "var(--error)",
-                          color: "white",
-                          padding: "2px 8px",
-                          borderRadius: "12px",
-                          fontSize: "12px"
-                        }}>
-                          {chat.unreadCounts.seller}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       )}
+
+      {/* Products Tab - Auto Redirect */}
+      {activeTab === "products" && null}
+
+      {/* Analytics Tab - Auto Redirect */}
+      {activeTab === "analytics" && null}
 
       {/* Location Tab */}
       {activeTab === "location" && (
         <div>
-          <h3 style={{ marginBottom: "24px" }}>📍 Your Location</h3>
+          <h3 style={{ marginBottom: isMobile ? "20px" : "24px", fontSize: isMobile ? "20px" : "24px" }}>📍 Your Location</h3>
           
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
+            gap: isMobile ? "20px" : "24px" 
+          }}>
             {/* Location Info Card */}
-            <div className="card">
-              <h4 style={{ marginBottom: "16px" }}>📍 Current Location Details</h4>
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: isMobile ? "16px" : "18px" }}>📍 Location Details</h4>
               
               <div style={{ marginBottom: "16px" }}>
                 <label style={{
@@ -343,208 +376,117 @@ export default function SellerDashboard() {
                   marginBottom: "8px",
                   color: "var(--text-primary)",
                   fontWeight: "600",
-                  fontSize: "14px"
+                  fontSize: isMobile ? "13px" : "14px"
                 }}>
-                  📍 Address
+                  Address
                 </label>
                 <input
                   type="text"
-                  value={userLocation.address || ""}
+                  value={userLocation.address}
                   onChange={(e) => setUserLocation(prev => ({ ...prev, address: e.target.value }))}
                   placeholder="Enter your business address"
                   style={{
                     width: "100%",
-                    padding: "8px 12px",
+                    padding: isMobile ? "12px 16px" : "10px 12px",
                     border: "1px solid var(--border-color)",
                     borderRadius: "var(--border-radius-sm)",
-                    fontSize: "14px"
+                    fontSize: isMobile ? "16px" : "14px" // iOS zoom prevention
                   }}
                 />
               </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
-                <div>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    color: "var(--text-primary)",
-                    fontWeight: "600",
-                    fontSize: "12px"
-                  }}>
-                    Latitude
-                  </label>
-                  <input
-                    type="text"
-                    value={userLocation.lat || ""}
-                    readOnly
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--border-radius-sm)",
-                      fontSize: "14px",
-                      background: "var(--background)",
-                      color: "var(--text-secondary)"
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    color: "var(--text-primary)",
-                    fontWeight: "600",
-                    fontSize: "12px"
-                  }}>
-                    Longitude
-                  </label>
-                  <input
-                    type="text"
-                    value={userLocation.lng || ""}
-                    readOnly
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--border-radius-sm)",
-                      fontSize: "14px",
-                      background: "var(--background)",
-                      color: "var(--text-secondary)"
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-                <button
-                  onClick={() => setUseLiveLocation(!useLiveLocation)}
-                  style={{
-                    padding: "8px 16px",
-                    background: useLiveLocation ? "var(--success)" : "var(--primary-blue)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "var(--border-radius-sm)",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500"
-                  }}
-                >
-                  {useLiveLocation ? "📍 Using Live Location" : "👤 Use My Location"}
-                </button>
+              
+              <div style={{ 
+                display: "flex", 
+                gap: isMobile ? "8px" : "12px",
+                flexDirection: isMobile ? "column" : "row"
+              }}>
                 <button
                   onClick={() => {
-                    localStorage.removeItem("sellerLocation");
-                    setUserLocation({ lat: 0, lng: 0, address: "" });
-                    setUseLiveLocation(false);
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          handleLocationUpdate({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                          });
+                        },
+                        (error) => {
+                          setLocationError("Unable to get your location. Please enable location services.");
+                        }
+                      );
+                    } else {
+                      setLocationError("Geolocation is not supported by your browser.");
+                    }
                   }}
-                  style={{
-                    padding: "8px 16px",
-                    background: "var(--error)",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "var(--border-radius-sm)",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500"
+                  className="btn btn-primary"
+                  style={{ 
+                    fontSize: isMobile ? "14px" : "14px",
+                    padding: isMobile ? "14px 16px" : "10px 16px",
+                    minHeight: isMobile ? "48px" : "auto" // Touch target size
                   }}
                 >
-                  🗑️ Clear Location
+                  📍 Use Current Location
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setUserLocation({ lat: 0, lng: 0, address: "" });
+                    localStorage.removeItem("sellerLocation");
+                    setLocationError("");
+                  }}
+                  className="btn btn-outline"
+                  style={{ 
+                    fontSize: isMobile ? "14px" : "14px",
+                    padding: isMobile ? "14px 16px" : "10px 16px",
+                    minHeight: isMobile ? "48px" : "auto" // Touch target size
+                  }}
+                >
+                  🗑️ Clear
                 </button>
               </div>
-
-              {userLocation.timestamp && (
-                <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                  Last updated: {new Date(userLocation.timestamp).toLocaleString()}
-                </div>
-              )}
-
+              
               {locationError && (
                 <div style={{
-                  padding: "8px 12px",
-                  background: "rgba(220, 53, 69, 0.1)",
-                  border: "1px solid var(--error)",
+                  marginTop: "12px",
+                  padding: "12px",
+                  backgroundColor: "var(--error)",
+                  color: "white",
                   borderRadius: "var(--border-radius-sm)",
-                  color: "var(--error)",
-                  fontSize: "14px",
-                  marginTop: "12px"
+                  fontSize: isMobile ? "13px" : "12px"
                 }}>
                   {locationError}
                 </div>
               )}
+              
+              {userLocation.lat !== 0 && userLocation.lng !== 0 && (
+                <div style={{
+                  marginTop: "16px",
+                  padding: "12px",
+                  backgroundColor: "var(--background)",
+                  borderRadius: "var(--border-radius-sm)",
+                  fontSize: isMobile ? "12px" : "12px",
+                  color: "var(--text-secondary)"
+                }}>
+                  📍 Coordinates: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                </div>
+              )}
             </div>
-
+            
             {/* Map Card */}
-            <div className="card" style={{ padding: "0" }}>
-              <div style={{
-                padding: "16px",
-                borderBottom: "1px solid var(--border-color)"
+            <div className="card" style={{ padding: isMobile ? "16px" : "20px" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: isMobile ? "16px" : "18px" }}>🗺️ Location Map</h4>
+              <div style={{ 
+                height: isMobile ? "250px" : "300px",
+                borderRadius: "var(--border-radius-sm)",
+                overflow: "hidden"
               }}>
-                <h4 style={{ margin: 0 }}>🗺️ Location Map</h4>
-              </div>
-              <div style={{ height: "400px" }}>
-                <LiveMap
-                  location={userLocation}
-                  destination={null}
+                <LiveMap 
+                  location={userLocation.lat !== 0 ? userLocation : null}
                   useLiveLocation={useLiveLocation}
                   onLocationUpdate={handleLocationUpdate}
                 />
               </div>
             </div>
-          </div>
-
-          {/* Location Benefits */}
-          <div className="card" style={{ marginTop: "24px" }}>
-            <h4 style={{ marginBottom: "16px" }}>💡 Why Share Your Location?</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontSize: "24px" }}>🚚</span>
-                <div>
-                  <strong>Faster Deliveries</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "var(--text-secondary)" }}>
-                    Customers can find you easily for quick product delivery
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontSize: "24px" }}>🎯</span>
-                <div>
-                  <strong>Local Visibility</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "var(--text-secondary)" }}>
-                    Appear in local searches when buyers look for nearby products
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontSize: "24px" }}>📈</span>
-                <div>
-                  <strong>Better Analytics</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "var(--text-secondary)" }}>
-                    Track customer locations and optimize your business strategy
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontSize: "24px" }}>🤝</span>
-                <div>
-                  <strong>Trust Building</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "var(--text-secondary)" }}>
-                  Customers feel more confident buying from verified local sellers
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Analytics Tab */}
-      {activeTab === "analytics" && (
-        <div>
-          <h3 style={{ marginBottom: "24px" }}>📈 Analytics</h3>
-          <div className="card">
-            <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "40px" }}>
-              Advanced analytics coming soon...
-            </p>
           </div>
         </div>
       )}

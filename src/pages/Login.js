@@ -23,6 +23,10 @@ export default function Login() {
           navigate("/delivery-partner", { replace: true });
         } else if (userData.role === "farmer") {
           navigate("/farmer", { replace: true });
+        } else if (userData.role === "buyer") {
+          navigate("/buyer", { replace: true });
+        } else if (userData.role === "seller") {
+          navigate("/seller", { replace: true });
         } else {
           navigate("/crops", { replace: true });
         }
@@ -83,6 +87,10 @@ export default function Login() {
       }
     } else if (data.user.role === "farmer") {
       navigate("/farmer");
+    } else if (data.user.role === "buyer") {
+      navigate("/buyer");
+    } else if (data.user.role === "seller") {
+      navigate("/seller");
     } else {
       navigate("/crops");
     }

@@ -14,7 +14,18 @@ export default function DeliveryPartnerDashboard() {
   const [earnings, setEarnings] = useState({ total: 0, today: 0, thisWeek: 0, thisMonth: 0 });
   const [performance, setPerformance] = useState({ avgDeliveryTime: 0, successRate: 0, totalDelivered: 0 });
   const [authStatus, setAuthStatus] = useState({ isAuthenticated: false, isDeliveryPartner: false });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const navigate = useNavigate();
+
+  // Mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -448,19 +459,41 @@ export default function DeliveryPartnerDashboard() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
-      <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="container" style={{ 
+      paddingTop: isMobile ? "20px" : "40px", 
+      paddingBottom: isMobile ? "20px" : "40px",
+      padding: isMobile ? "20px 16px" : "40px 20px"
+    }}>
+      <div className="page-header" style={{ marginBottom: isMobile ? "24px" : "32px" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: isMobile ? "flex-start" : "center",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? "16px" : "0"
+        }}>
           <div>
-            <h1>🚚 Delivery Partner Dashboard</h1>
-            <p>Manage deliveries and track your performance</p>
+            <h1 style={{ 
+              fontSize: isMobile ? "24px" : "32px",
+              marginBottom: isMobile ? "8px" : "16px"
+            }}>
+              🚚 Delivery Partner Dashboard
+            </h1>
+            <p style={{ 
+              fontSize: isMobile ? "14px" : "16px",
+              color: "var(--text-secondary)",
+              margin: 0
+            }}>
+              Manage deliveries and track your performance
+            </p>
             {dashboardData?.partnerInfo && (
               <div style={{ 
                 background: "var(--background-alt)", 
-                padding: "8px 12px", 
+                padding: isMobile ? "12px 16px" : "8px 12px", 
                 borderRadius: "6px", 
-                marginTop: "8px",
-                fontSize: "14px"
+                marginTop: isMobile ? "12px" : "8px",
+                fontSize: isMobile ? "12px" : "14px",
+                lineHeight: "1.4"
               }}>
                 🚐 {dashboardData.partnerInfo.vehicleType} | 
                 📦 Capacity: {dashboardData.partnerInfo.vehicleCapacity}kg | 
@@ -468,21 +501,33 @@ export default function DeliveryPartnerDashboard() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ 
+            display: "flex", 
+            gap: isMobile ? "8px" : "12px", 
+            alignItems: "center",
+            flexDirection: isMobile ? "column" : "row",
+            width: isMobile ? "100%" : "auto"
+          }}>
             <div style={{
-              padding: "8px 16px",
+              padding: isMobile ? "10px 16px" : "8px 16px",
               borderRadius: "20px",
               background: isOnline ? "#4caf50" : "#f44336",
               color: "white",
-              fontSize: "14px",
-              fontWeight: "600"
+              fontSize: isMobile ? "12px" : "14px",
+              fontWeight: "600",
+              textAlign: "center",
+              width: isMobile ? "100%" : "auto"
             }}>
               {isOnline ? "🟢 Online" : "🔴 Offline"}
             </div>
             <button
               onClick={toggleOnlineStatus}
               className={`btn ${isOnline ? "btn-secondary" : "btn-primary"}`}
-              style={{ fontSize: "14px", padding: "10px 20px" }}
+              style={{ 
+                fontSize: isMobile ? "13px" : "14px", 
+                padding: isMobile ? "12px 16px" : "10px 20px",
+                width: isMobile ? "100%" : "auto"
+              }}
             >
               {isOnline ? "🔴 Go Offline" : "🟢 Go Online"}
             </button>
@@ -493,33 +538,40 @@ export default function DeliveryPartnerDashboard() {
       {/* Tab Navigation */}
       <div style={{ 
         borderBottom: "2px solid var(--border-color)", 
-        marginBottom: "32px" 
+        marginBottom: isMobile ? "24px" : "32px" 
       }}>
-        <div style={{ display: "flex", gap: "0", overflowX: "auto" }}>
+        <div style={{ 
+          display: "flex", 
+          gap: "0", 
+          overflowX: isMobile ? "auto" : "visible",
+          WebkitOverflowScrolling: isMobile ? "touch" : "auto"
+        }}>
           {[/* eslint-disable indent */
             { id: "overview", label: "📊 Overview", icon: "📊", path: "/delivery-partner" },
-            { id: "queue", label: "📦 Delivery Queue", icon: "📦", path: "/delivery-partner/queue" },
-            { id: "map", label: "🗺️ Map View", icon: "🗺️", path: "/delivery-partner/map-view" },
+            { id: "queue", label: "📦 Queue", icon: "📦", path: "/delivery-partner/queue" },
+            { id: "map", label: "🗺️ Map", icon: "🗺️", path: "/delivery-partner/map-view" },
             { id: "earnings", label: "💰 Earnings", icon: "💰", path: "/delivery-partner/earnings" },
             { id: "performance", label: "📈 Performance", icon: "📈", path: "/delivery-partner/performance" },
-            { id: "communication", label: "💬 Communication", icon: "💬", path: "/delivery-partner/communication" }
+            { id: "communication", label: "💬 Chat", icon: "💬", path: "/delivery-partner/communication" }
           ].map((tab) => (
             <Link
               key={tab.id}
               to={tab.path}
               style={{
-                padding: "12px 24px",
+                padding: isMobile ? "12px 16px" : "12px 24px",
                 border: "none",
                 background: activeTab === tab.id ? "var(--primary-blue)" : "transparent",
                 color: activeTab === tab.id ? "white" : "var(--text-secondary)",
                 borderBottom: activeTab === tab.id ? "3px solid var(--primary-blue)" : "3px solid transparent",
                 cursor: "pointer",
-                fontSize: "14px",
+                fontSize: isMobile ? "12px" : "14px",
                 fontWeight: "600",
                 transition: "all 0.3s ease",
                 whiteSpace: "nowrap",
                 textDecoration: "none",
-                display: "inline-block"
+                display: "inline-block",
+                minWidth: isMobile ? "auto" : "120px",
+                textAlign: "center"
               }}
               onMouseEnter={(e) => {
                 if (activeTab !== tab.id) {
@@ -544,40 +596,92 @@ export default function DeliveryPartnerDashboard() {
       {/* Stats Cards */}
       <div style={{ 
         display: "grid", 
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-        gap: "16px",
-        marginBottom: "32px"
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(200px, 1fr))", 
+        gap: isMobile ? "16px" : "20px",
+        marginBottom: isMobile ? "32px" : "40px"
       }}>
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>📦</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>📦</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
             {stats.total}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Total Deliveries</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Total Deliveries</div>
         </div>
         
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>⏳</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ff9800" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(255, 152, 0, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>⏳</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#ff9800" }}>
             {stats.pending}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Pending</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Pending</div>
         </div>
         
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>🚚</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "#2196f3" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(33, 150, 243, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>🚚</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#2196f3" }}>
             {stats.inTransit}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>In Transit</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>In Transit</div>
         </div>
         
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4caf50" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(76, 175, 80, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>✅</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#4caf50" }}>
             {stats.delivered}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Delivered</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Delivered</div>
         </div>
       </div>
 

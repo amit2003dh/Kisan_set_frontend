@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 
 export default function SellerOrders() {
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get('view');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,18 +17,6 @@ export default function SellerOrders() {
     delivered: 0,
     revenue: 0
   });
-
-  useEffect(() => {
-    const user = localStorage.getItem("user");
-    if (user) {
-      try {
-        setCurrentUser(JSON.parse(user));
-      } catch (e) {
-        console.error("Error parsing user data:", e);
-      }
-    }
-    fetchOrders();
-  }, [fetchOrders]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -43,6 +33,18 @@ export default function SellerOrders() {
     
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (user) {
+      try {
+        setCurrentUser(JSON.parse(user));
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+    }
+    fetchOrders();
+  }, [fetchOrders]);
 
   const calculateStats = (ordersData) => {
     const newStats = {
@@ -154,20 +156,133 @@ export default function SellerOrders() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>
-          {currentUser?.role === "farmer" ? "🌾 My Crop Orders" : "📦 My Sales Orders"}
-        </h1>
-        <p>
-          {currentUser?.role === "farmer" 
-            ? "Track and manage your crop sales" 
-            : "Track and manage your sales orders"
-          }
-        </p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1>
+              {currentUser?.role === "farmer" ? "🌾 My Crop Orders" : "📦 My Sales Orders"}
+            </h1>
+            <p>
+              {currentUser?.role === "farmer" 
+                ? "Track and manage your crop sales" 
+                : "Track and manage your sales orders"
+              }
+            </p>
+          </div>
+          {/* <Link to="/seller-orders?view=analytics" className="btn btn-primary">
+            📈 View Analytics
+          </Link> */}
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      {/* Stats Dashboard */}
+      {/* Analytics View */}
+      {view === 'analytics' && (
+        <div>
+          <div className="page-header">
+            <h1>📈 Sales Analytics</h1>
+            <p>View your income, expenses, and sales performance</p>
+          </div>
+          
+          {/* Enhanced Analytics Cards */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
+            gap: "20px",
+            marginBottom: "32px"
+          }}>
+            <div className="card" style={{ textAlign: "center", padding: "24px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "12px" }}>💰</div>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "var(--primary-green)" }}>
+                ₹{stats.revenue.toLocaleString('en-IN')}
+              </div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "16px" }}>Total Income</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px" }}>
+                From {stats.delivered} delivered orders
+              </div>
+            </div>
+            
+            <div className="card" style={{ textAlign: "center", padding: "24px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "12px" }}>📊</div>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "var(--primary-blue)" }}>
+                {stats.total}
+              </div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "16px" }}>Total Orders</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px" }}>
+                {stats.pending} pending, {stats.confirmed} confirmed
+              </div>
+            </div>
+            
+            <div className="card" style={{ textAlign: "center", padding: "24px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "12px" }}>📈</div>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "var(--primary-orange)" }}>
+                ₹{stats.total > 0 ? Math.round(stats.revenue / stats.total).toLocaleString('en-IN') : 0}
+              </div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "16px" }}>Average Order Value</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px" }}>
+                Per order average
+              </div>
+            </div>
+            
+            <div className="card" style={{ textAlign: "center", padding: "24px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "12px" }}>✅</div>
+              <div style={{ fontSize: "32px", fontWeight: "bold", color: "var(--success)" }}>
+                {stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0}%
+              </div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "16px" }}>Completion Rate</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px" }}>
+                Delivered orders percentage
+              </div>
+            </div>
+          </div>
+
+          {/* Simple Revenue Chart */}
+          <div className="card" style={{ padding: "24px", marginBottom: "32px" }}>
+            <h3 style={{ marginBottom: "20px" }}>📊 Revenue Overview</h3>
+            <div style={{ 
+              height: "200px", 
+              background: "linear-gradient(135deg, var(--primary-green) 0%, var(--primary-blue) 100%)",
+              borderRadius: "var(--border-radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontSize: "24px",
+              fontWeight: "bold"
+            }}>
+              💰 Total Revenue: ₹{stats.revenue.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          {/* Order Status Breakdown */}
+          <div className="card" style={{ padding: "24px" }}>
+            <h3 style={{ marginBottom: "20px" }}>📈 Order Status Breakdown</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
+              <div style={{ textAlign: "center", padding: "16px", background: "#f0f8ff", borderRadius: "8px" }}>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ff9800" }}>{stats.pending}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Pending</div>
+              </div>
+              <div style={{ textAlign: "center", padding: "16px", background: "#f0fff0", borderRadius: "8px" }}>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4caf50" }}>{stats.confirmed}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Confirmed</div>
+              </div>
+              <div style={{ textAlign: "center", padding: "16px", background: "#f5f5f5", borderRadius: "8px" }}>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#2196f3" }}>{stats.delivered}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Delivered</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: "32px" }}>
+            <Link to="/seller-orders" className="btn btn-primary">
+              📊 Back to Orders List
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Regular Orders View */}
+      {view !== 'analytics' && (
       <div style={{ 
         display: "grid", 
         gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
@@ -206,9 +321,8 @@ export default function SellerOrders() {
           <div style={{ color: "var(--text-secondary)" }}>Total Revenue</div>
         </div>
       </div>
-
-      {/* Filter Buttons */}
-      <div style={{ 
+)}
+          <div style={{ 
         display: "flex", 
         gap: "12px", 
         marginBottom: "32px",
@@ -243,7 +357,7 @@ export default function SellerOrders() {
           🎉 Delivered ({stats.delivered})
         </button>
       </div>
-
+      
       {filteredOrders.length === 0 ? (
         <div className="empty-state card">
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>

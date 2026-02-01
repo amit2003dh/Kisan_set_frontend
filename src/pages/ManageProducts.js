@@ -13,6 +13,27 @@ export default function ManageProducts() {
   const [currentUser, setCurrentUser] = useState(null);
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
   const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  
+  // Mobile detection states
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(true);
+
+  // Mobile detection and responsive handling
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    window.addEventListener('orientationchange', checkMobile);
+
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('orientationchange', checkMobile);
+    };
+  }, []);
 
   useEffect(() => {
     // Get current user from localStorage
@@ -253,55 +274,120 @@ export default function ManageProducts() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
+    <div className="container" style={{ 
+      paddingTop: isMobile ? "20px" : "40px", 
+      paddingBottom: isMobile ? "20px" : "40px",
+      paddingLeft: isMobile ? "16px" : "20px",
+      paddingRight: isMobile ? "16px" : "20px",
+      minHeight: "100vh",
+      background: isMobile 
+        ? "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
+        : "var(--background)"
+    }}>
       <div className="page-header">
-        <h1>🛒 Manage Your Products</h1>
-        <p>Track, update, and manage your product listings</p>
+        <h1 style={{ 
+          fontSize: isMobile ? "24px" : "32px",
+          marginBottom: isMobile ? "8px" : "0"
+        }}>🛒 Manage Your Products</h1>
+        <p style={{ 
+          fontSize: isMobile ? "14px" : "16px",
+          color: "var(--text-secondary)",
+          margin: 0
+        }}>Track, update, and manage your product listings</p>
       </div>
 
       {/* Tabs */}
       <div style={{ 
         display: "flex", 
-        gap: "8px", 
-        marginBottom: "32px",
+        gap: isMobile ? "4px" : "8px", 
+        marginBottom: isMobile ? "24px" : "32px",
         borderBottom: "1px solid var(--border-color)",
-        paddingBottom: "16px"
+        paddingBottom: "16px",
+        overflowX: "auto",
+        WebkitOverflowScrolling: "touch"
       }}>
         {[
-          { id: "all", label: "All Products", count: products.length },
-          { id: "available", label: "Available", count: products.filter(p => p.stock > 0 && p.status === "Available").length },
-          { id: "reserved", label: "Reserved", count: products.filter(p => p.status === "Reserved").length },
-          { id: "out_of_stock", label: "Out of Stock", count: products.filter(p => p.stock === 0).length },
-          { id: "verified", label: "Verified", count: products.filter(p => p.verified).length }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`btn ${activeTab === tab.id ? "btn-primary" : "btn-outline"}`}
-            style={{ 
-              borderRadius: "var(--border-radius-sm)",
-              fontSize: "14px",
-              position: "relative"
-            }}
-          >
-            {tab.label}
-            <span style={{
-              background: activeTab === tab.id ? "white" : "var(--primary-blue)",
-              color: activeTab === tab.id ? "var(--primary-blue)" : "white",
-              padding: "2px 6px",
-              borderRadius: "10px",
-              fontSize: "12px",
-              marginLeft: "8px"
-            }}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
+          { id: "all", label: "All", icon: "📦" },
+          { id: "available", label: "Available", icon: "✅" },
+          { id: "reserved", label: "Reserved", icon: "⏸️" },
+          { id: "out_of_stock", label: "Out of Stock", icon: "❌" },
+          { id: "verified", label: "Verified", icon: "✨" }
+        ].map((tab) => {
+          const count = tab.id === "all" ? products.length :
+                      tab.id === "available" ? products.filter(p => p.stock > 0 && p.status === "Available").length :
+                      tab.id === "reserved" ? products.filter(p => p.status === "Reserved").length :
+                      tab.id === "out_of_stock" ? products.filter(p => p.stock === 0).length :
+                      products.filter(p => p.verified).length;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`btn ${activeTab === tab.id ? "btn-primary" : "btn-outline"}`}
+              style={{ 
+                borderRadius: "var(--border-radius-sm)",
+                fontSize: isMobile ? "12px" : "14px",
+                position: "relative",
+                padding: isMobile ? "8px 12px" : "8px 16px",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: isMobile ? "4px" : "8px",
+                transition: "all 0.3s ease",
+                transform: "translateY(0)",
+                boxShadow: isMobile ? "0 2px 4px rgba(0,0,0,0.1)" : "none"
+              }}
+            >
+              <span>{isMobile ? tab.icon : tab.label}</span>
+              {!isMobile && (
+                <span style={{
+                  background: activeTab === tab.id ? "white" : "var(--primary-blue)",
+                  color: activeTab === tab.id ? "var(--primary-blue)" : "white",
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                  fontSize: "12px",
+                  marginLeft: "8px"
+                }}>
+                  {count}
+                </span>
+              )}
+              {isMobile && count > 0 && (
+                <span style={{
+                  background: "var(--error)",
+                  color: "white",
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                  fontSize: "10px",
+                  minWidth: "16px",
+                  height: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Add New Product Button */}
-      <div style={{ marginBottom: "24px" }}>
-        <Link to="/add-product" className="btn btn-primary">
+      <div style={{ marginBottom: isMobile ? "20px" : "24px" }}>
+        <Link 
+          to="/add-product" 
+          className="btn btn-primary"
+          style={{ 
+            fontSize: isMobile ? "14px" : "16px",
+            padding: isMobile ? "14px 20px" : "12px 24px",
+            width: isMobile ? "100%" : "auto",
+            display: isMobile ? "block" : "inline-block",
+            textAlign: "center",
+            minHeight: isMobile ? "48px" : "auto",
+            boxShadow: isMobile ? "0 4px 12px rgba(33, 150, 243, 0.3)" : "none",
+            transition: "all 0.3s ease"
+          }}
+        >
           ➕ Add New Product
         </Link>
       </div>
@@ -314,9 +400,26 @@ export default function ManageProducts() {
           </p>
         </div>
       ) : (
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))", gap: "20px" }}>
+        <div className="grid" style={{ 
+          gridTemplateColumns: isMobile 
+            ? (isPortrait ? "1fr" : "repeat(2, 1fr)")
+            : "repeat(auto-fill, minmax(350px, 1fr))", 
+          gap: isMobile ? "16px" : "20px" 
+        }}>
           {filteredProducts.map((product) => (
-            <div key={product._id} className="card">
+            <div key={product._id} className="card" style={{
+              transition: "all 0.3s ease",
+              transform: "translateY(0)",
+              boxShadow: isMobile 
+                ? "0 2px 8px rgba(0,0,0,0.1)" 
+                : "0 4px 6px rgba(0,0,0,0.1)",
+              ":hover": {
+                transform: isMobile ? "translateY(-2px)" : "translateY(-4px)",
+                boxShadow: isMobile 
+                  ? "0 4px 12px rgba(0,0,0,0.15)" 
+                  : "0 8px 15px rgba(0,0,0,0.2)"
+              }
+            }}>
               {/* Product Image */}
               {product.images && product.images.length > 0 && (
                 <img
@@ -328,85 +431,130 @@ export default function ManageProducts() {
                   alt={product.name}
                   style={{
                     width: "100%",
-                    height: "200px",
+                    height: isMobile ? "160px" : "200px",
                     objectFit: "cover",
                     borderRadius: "var(--border-radius-sm) var(--border-radius-sm) 0 0"
                   }}
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/350x200/2196f3/ffffff?text=�+Product+Image";
+                    e.target.src = "https://via.placeholder.com/350x200/2196f3/ffffff?text=🛒+Product+Image";
                   }}
                 />
               )}
               {!product.images || product.images.length === 0 && (
                 <div style={{
                   width: "100%",
-                  height: "200px",
+                  height: isMobile ? "160px" : "200px",
                   background: "linear-gradient(135deg, #2196f3, #64b5f6)",
                   borderRadius: "var(--border-radius-sm) var(--border-radius-sm) 0 0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "white",
-                  fontSize: "48px"
+                  fontSize: isMobile ? "36px" : "48px"
                 }}>
                   🛒
                 </div>
               )}
 
-              <div style={{ padding: "20px" }}>
+              <div style={{ padding: isMobile ? "16px" : "20px" }}>
                 {/* Header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
-                  <div>
-                    <h3 style={{ margin: "0 0 4px 0" }}>{product.name}</h3>
-                    <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
+                <div style={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: isMobile ? "flex-start" : "start", 
+                  marginBottom: "12px",
+                  flexDirection: isMobile ? "column" : "row",
+                  gap: isMobile ? "8px" : "0"
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ 
+                      margin: "0 0 4px 0", 
+                      fontSize: isMobile ? "16px" : "18px",
+                      lineHeight: isMobile ? "1.2" : "1.4"
+                    }}>{product.name}</h3>
+                    <p style={{ 
+                      margin: 0, 
+                      fontSize: isMobile ? "12px" : "14px", 
+                      color: "var(--text-secondary)" 
+                    }}>
                       {product.type} • {product.brand}
                     </p>
                   </div>
                   <span style={{
                     background: getStatusColor(product.stock, product.verified, product.status),
                     color: "white",
-                    padding: "4px 8px",
+                    padding: isMobile ? "6px 10px" : "4px 8px",
                     borderRadius: "12px",
-                    fontSize: "12px",
-                    fontWeight: "500"
+                    fontSize: isMobile ? "11px" : "12px",
+                    fontWeight: "500",
+                    whiteSpace: "nowrap"
                   }}>
                     {getStatusText(product.stock, product.verified, product.status)}
                   </span>
                 </div>
 
                 {/* Details */}
-                <div style={{ marginBottom: "16px" }}>
-                  <p style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "600" }}>
+                <div style={{ marginBottom: isMobile ? "12px" : "16px" }}>
+                  <p style={{ 
+                    margin: "0 0 8px 0", 
+                    fontSize: isMobile ? "18px" : "16px", 
+                    fontWeight: "600",
+                    color: "var(--primary-green)"
+                  }}>
                     ₹{product.price}
                   </p>
-                  <p style={{ margin: "0 0 4px 0", fontSize: "14px" }}>
+                  <p style={{ 
+                    margin: "0 0 4px 0", 
+                    fontSize: isMobile ? "13px" : "14px" 
+                  }}>
                     <strong>Stock:</strong> {product.stock} units
                   </p>
-                  <p style={{ margin: "0 0 4px 0", fontSize: "14px" }}>
+                  <p style={{ 
+                    margin: "0 0 4px 0", 
+                    fontSize: isMobile ? "13px" : "14px" 
+                  }}>
                     <strong>Min Order:</strong> {product.minimumOrder || 1} units
                   </p>
                   {product.crop && (
-                    <p style={{ margin: "0 0 4px 0", fontSize: "14px" }}>
+                    <p style={{ 
+                      margin: "0 0 4px 0", 
+                      fontSize: isMobile ? "13px" : "14px" 
+                    }}>
                       <strong>Crop Type:</strong> {product.crop}
                     </p>
                   )}
                   {product.location && (
-                    <p style={{ margin: "0", fontSize: "12px", color: "var(--text-secondary)" }}>
+                    <p style={{ 
+                      margin: "0", 
+                      fontSize: isMobile ? "11px" : "12px", 
+                      color: "var(--text-secondary)",
+                      lineHeight: "1.3"
+                    }}>
                       📍 {product.location.city}, {product.location.state}
                     </p>
                   )}
                 </div>
 
                 {/* Action Buttons */}
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <div style={{ 
+                  display: "flex", 
+                  gap: isMobile ? "6px" : "8px", 
+                  flexWrap: isMobile ? "wrap" : "nowrap",
+                  flexDirection: isMobile ? "column" : "row"
+                }}>
                   <button
                     onClick={() => handleEditProduct(product)}
                     className="btn btn-outline"
-                    style={{ fontSize: "14px", padding: "8px 12px" }}
+                    style={{ 
+                      fontSize: isMobile ? "13px" : "14px", 
+                      padding: isMobile ? "10px 16px" : "8px 12px",
+                      minHeight: isMobile ? "40px" : "auto",
+                      flex: isMobile ? "1" : "auto"
+                    }}
                   >
                     ✏️ Edit
                   </button>
-                  
+                   
                   {/* Verification buttons - only for admins */}
                   {currentUser && currentUser.role === "admin" && (
                     <>
@@ -480,22 +628,34 @@ export default function ManageProducts() {
           alignItems: "center",
           justifyContent: "center",
           zIndex: 1000,
-          padding: "20px"
+          padding: isMobile ? "16px" : "20px"
         }}>
           <div style={{
             background: "white",
             borderRadius: "var(--border-radius-md)",
-            padding: "24px",
-            maxWidth: "500px",
+            padding: isMobile ? "20px" : "24px",
+            maxWidth: isMobile ? "95%" : "500px",
             width: "100%",
-            maxHeight: "90vh",
-            overflowY: "auto"
+            maxHeight: isMobile ? "95vh" : "90vh",
+            overflowY: "auto",
+            boxShadow: isMobile 
+              ? "0 4px 20px rgba(0,0,0,0.2)" 
+              : "0 8px 32px rgba(0,0,0,0.15)"
           }}>
-            <h3 style={{ margin: "0 0 20px 0" }}>Edit Product</h3>
+            <h3 style={{ 
+              margin: "0 0 " + (isMobile ? "16px" : "20px") + " 0", 
+              fontSize: isMobile ? "20px" : "24px",
+              color: "var(--text-primary)"
+            }}>Edit Product</h3>
             
             <form onSubmit={handleUpdateProduct}>
               <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", marginBottom: "4px", fontWeight: "600" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "8px", 
+                  fontWeight: "600",
+                  fontSize: isMobile ? "14px" : "14px"
+                }}>
                   Product Name
                 </label>
                 <input
@@ -511,6 +671,8 @@ export default function ManageProducts() {
                   className={`input ${fieldErrors.name ? "input-error" : ""}`}
                   required
                   style={{
+                    fontSize: isMobile ? "16px" : "14px", // iOS zoom prevention
+                    padding: isMobile ? "12px 16px" : "10px 12px",
                     borderColor: fieldErrors.name ? "var(--error)" : undefined,
                     borderWidth: fieldErrors.name ? "2px" : undefined
                   }}
@@ -518,7 +680,7 @@ export default function ManageProducts() {
                 {fieldErrors.name && (
                   <div style={{
                     color: "var(--error)",
-                    fontSize: "12px",
+                    fontSize: isMobile ? "13px" : "12px",
                     marginTop: "4px",
                     display: "flex",
                     alignItems: "center",
@@ -530,9 +692,19 @@ export default function ManageProducts() {
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+              <div style={{ 
+                display: "grid", 
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
+                gap: "16px", 
+                marginBottom: "16px" 
+              }}>
                 <div>
-                  <label style={{ display: "block", marginBottom: "4px", fontWeight: "600" }}>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "600",
+                    fontSize: isMobile ? "14px" : "14px"
+                  }}>
                     Stock (units)
                   </label>
                   <input
@@ -550,14 +722,14 @@ export default function ManageProducts() {
                     className={`input ${fieldErrors.stock ? "input-error" : ""}`}
                     required
                     style={{
-                      borderColor: fieldErrors.stock ? "var(--error)" : undefined,
-                      borderWidth: fieldErrors.stock ? "2px" : undefined
+                      fontSize: isMobile ? "16px" : "14px", // iOS zoom prevention
+                      padding: isMobile ? "12px 16px" : "10px 12px"
                     }}
                   />
                   {fieldErrors.stock && (
                     <div style={{
                       color: "var(--error)",
-                      fontSize: "12px",
+                      fontSize: isMobile ? "13px" : "12px",
                       marginTop: "4px",
                       display: "flex",
                       alignItems: "center",
@@ -569,7 +741,12 @@ export default function ManageProducts() {
                   )}
                 </div>
                 <div>
-                  <label style={{ display: "block", marginBottom: "4px", fontWeight: "600" }}>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "600",
+                    fontSize: isMobile ? "14px" : "14px"
+                  }}>
                     Price (₹)
                   </label>
                   <input
@@ -587,14 +764,14 @@ export default function ManageProducts() {
                     className={`input ${fieldErrors.price ? "input-error" : ""}`}
                     required
                     style={{
-                      borderColor: fieldErrors.price ? "var(--error)" : undefined,
-                      borderWidth: fieldErrors.price ? "2px" : undefined
+                      fontSize: isMobile ? "16px" : "14px", // iOS zoom prevention
+                      padding: isMobile ? "12px 16px" : "10px 12px"
                     }}
                   />
                   {fieldErrors.price && (
                     <div style={{
                       color: "var(--error)",
-                      fontSize: "12px",
+                      fontSize: isMobile ? "13px" : "12px",
                       marginTop: "4px",
                       display: "flex",
                       alignItems: "center",

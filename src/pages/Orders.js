@@ -17,10 +17,21 @@ export default function Orders() {
     delivered: 0,
     revenue: 0
   });
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const navigate = useNavigate();
   const user = localStorage.getItem("user");
+
+  // Mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -183,14 +194,25 @@ export default function Orders() {
   }
 
   return (
-    <div className="container" style={{ padding: "40px 0" }}>
-      <div className="page-header">
-        <h1>
+    <div className="container" style={{ 
+      padding: isMobile ? "20px 16px" : "40px 0",
+      maxWidth: isMobile ? "100%" : "1200px",
+      margin: "0 auto"
+    }}>
+      <div className="page-header" style={{ marginBottom: isMobile ? "24px" : "32px" }}>
+        <h1 style={{ 
+          fontSize: isMobile ? "24px" : "32px",
+          marginBottom: isMobile ? "8px" : "16px"
+        }}>
           {currentUser?.role === "farmer"
             ? "🛒 My Orders"
             : "📦 My Orders"}
         </h1>
-        <p>
+        <p style={{ 
+          fontSize: isMobile ? "14px" : "16px",
+          color: "var(--text-secondary)",
+          margin: 0
+        }}>
           {currentUser?.role === "farmer"
             ? "Track your crop sales and purchase orders"
             : "Track and manage your orders"
@@ -198,42 +220,115 @@ export default function Orders() {
         </p>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message" style={{ marginBottom: isMobile ? "20px" : "24px" }}>{error}</div>}
 
       {/* Stats Dashboard */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: "16px",
-        marginBottom: "32px"
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: isMobile ? "16px" : "20px",
+        marginBottom: isMobile ? "32px" : "40px"
       }}>
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>📊</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>📊</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
             {stats.total}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Total Orders</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Total Orders</div>
         </div>
 
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>⏳</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ff9800" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(255, 152, 0, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>⏳</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#ff9800" }}>
             {stats.pending}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Pending</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Pending</div>
         </div>
 
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "#4caf50" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(76, 175, 80, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>✅</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#4caf50" }}>
             {stats.confirmed}
           </div>
-          <div style={{ color: "var(--text-secondary)" }}>Confirmed</div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Confirmed</div>
         </div>
 
-        <div className="card" style={{ textAlign: "center", padding: "20px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>💰</div>
-          <div style={{ fontSize: "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(76, 175, 80, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>🚚</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#2196f3" }}>
+            {stats.delivered}
+          </div>
+          <div style={{ color: "var(--text-secondary)", fontSize: isMobile ? "12px" : "14px" }}>Delivered</div>
+        </div>
+
+        <div className="card" style={{ 
+          textAlign: "center", 
+          padding: isMobile ? "20px 16px" : "20px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(76, 175, 80, 0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>💰</div>
+          <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
             ₹{stats.revenue.toLocaleString('en-IN')}
           </div>
           <div style={{ color: "var(--text-secondary)" }}>Total Revenue</div>
@@ -242,38 +337,50 @@ export default function Orders() {
 
       {/* Filter Buttons */}
       <div style={{
+        marginBottom: isMobile ? "24px" : "32px",
         display: "flex",
-        gap: "12px",
-        marginBottom: "32px",
+        gap: isMobile ? "8px" : "12px",
         flexWrap: "wrap"
       }}>
         <button
           onClick={() => setFilter("all")}
           className={`btn ${filter === "all" ? "btn-primary" : "btn-secondary"}`}
-          style={{ fontSize: "14px", padding: "10px 20px" }}
+          style={{ 
+            fontSize: isMobile ? "12px" : "14px", 
+            padding: isMobile ? "8px 16px" : "10px 20px"
+          }}
         >
-          All Orders ({stats.total})
+          📋 All Orders
         </button>
         <button
           onClick={() => setFilter("pending")}
           className={`btn ${filter === "pending" ? "btn-primary" : "btn-secondary"}`}
-          style={{ fontSize: "14px", padding: "10px 20px" }}
+          style={{ 
+            fontSize: isMobile ? "12px" : "14px", 
+            padding: isMobile ? "8px 16px" : "10px 20px"
+          }}
         >
-          ⏳ Pending ({stats.pending})
+          ⏳ Pending
         </button>
         <button
           onClick={() => setFilter("confirmed")}
           className={`btn ${filter === "confirmed" ? "btn-primary" : "btn-secondary"}`}
-          style={{ fontSize: "14px", padding: "10px 20px" }}
+          style={{ 
+            fontSize: isMobile ? "12px" : "14px", 
+            padding: isMobile ? "8px 16px" : "10px 20px"
+          }}
         >
-          ✅ Confirmed ({stats.confirmed})
+          ✅ Confirmed
         </button>
         <button
           onClick={() => setFilter("delivered")}
           className={`btn ${filter === "delivered" ? "btn-primary" : "btn-secondary"}`}
-          style={{ fontSize: "14px", padding: "10px 20px" }}
+          style={{ 
+            fontSize: isMobile ? "12px" : "14px", 
+            padding: isMobile ? "8px 16px" : "10px 20px"
+          }}
         >
-          🎉 Delivered ({stats.delivered})
+          🚚 Delivered
         </button>
       </div>
 
@@ -300,23 +407,44 @@ export default function Orders() {
                 </Link>
               </div>
             ) : (
-              <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "16px" }}>
+              <div className="grid" style={{ 
+                gridTemplateColumns: "1fr", 
+                gap: isMobile ? "20px" : "16px"
+              }}>
                 {filteredSalesOrders.map((order) => (
-                  <div key={order._id} className="card">
+                  <div key={order._id} className="card" style={{
+                    padding: isMobile ? "20px 16px" : "20px",
+                    transition: "transform 0.2s, box-shadow 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}>
                     <div style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: "16px"
+                      alignItems: isMobile ? "flex-start" : "flex-start",
+                      marginBottom: isMobile ? "20px" : "16px",
+                      flexDirection: isMobile ? "column" : "row",
+                      gap: isMobile ? "16px" : "0"
                     }}>
-                      <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+                      <div style={{ 
+                        display: "flex", 
+                        gap: isMobile ? "12px" : "16px", 
+                        alignItems: "flex-start",
+                        flex: 1
+                      }}>
                         {getItemImage(order) && (
                           <img
                             src={getItemImage(order)}
                             alt={getItemName(order)}
                             style={{
-                              width: "60px",
-                              height: "60px",
+                              width: isMobile ? "50px" : "60px",
+                              height: isMobile ? "50px" : "60px",
                               borderRadius: "var(--border-radius-sm)",
                               objectFit: "cover",
                               border: "1px solid var(--border-color)"
@@ -326,7 +454,7 @@ export default function Orders() {
                               e.target.style.display = "none";
                               const parent = e.target.parentElement;
                               const fallback = document.createElement("div");
-                              fallback.style.cssText = "width: 60px; height: 60px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center; background: var(--background); border: 1px solid var(--border-color); font-size: 24px;";
+                              fallback.style.cssText = `width: ${isMobile ? "50px" : "60px"}; height: ${isMobile ? "50px" : "60px"}; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center; background: var(--background); border: 1px solid var(--border-color); font-size: ${isMobile ? "20px" : "24px"};`;
                               fallback.textContent = icon;
                               parent.replaceChild(fallback, e.target);
                             }}
@@ -334,23 +462,23 @@ export default function Orders() {
                         )}
                         {!getItemImage(order) && (
                           <div style={{
-                            width: "60px",
-                            height: "60px",
+                            width: isMobile ? "50px" : "60px",
+                            height: isMobile ? "50px" : "60px",
                             borderRadius: "var(--border-radius-sm)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             background: "var(--background)",
                             border: "1px solid var(--border-color)",
-                            fontSize: "24px"
+                            fontSize: isMobile ? "20px" : "24px"
                           }}>
                             🌾
                           </div>
                         )}
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <h3 style={{
                             margin: "0 0 8px 0",
-                            fontSize: "18px",
+                            fontSize: isMobile ? "16px" : "18px",
                             color: "var(--text-primary)",
                             fontWeight: "600"
                           }}>
@@ -359,7 +487,7 @@ export default function Orders() {
                           <p style={{
                             margin: "0 0 4px 0",
                             color: "var(--text-primary)",
-                            fontSize: "16px",
+                            fontSize: isMobile ? "14px" : "16px",
                             fontWeight: "500"
                           }}>
                             {getItemName(order)}
@@ -367,7 +495,7 @@ export default function Orders() {
                           <p style={{
                             margin: 0,
                             color: "var(--text-secondary)",
-                            fontSize: "14px"
+                            fontSize: isMobile ? "12px" : "14px"
                           }}>
                             Sold to: {order.buyerId?.name || "Customer"}
                           </p>
@@ -377,14 +505,15 @@ export default function Orders() {
                         display: "flex",
                         gap: "8px",
                         alignItems: "center",
-                        marginBottom: "12px"
+                        marginBottom: isMobile ? "12px" : "12px",
+                        alignSelf: isMobile ? "flex-start" : "center"
                       }}>
                         <span style={{
                           padding: "4px 12px",
                           background: getStatusColor(order.status),
                           color: "white",
                           borderRadius: "12px",
-                          fontSize: "12px",
+                          fontSize: isMobile ? "10px" : "12px",
                           fontWeight: "600"
                         }}>
                           {getStatusIcon(order.status)} {order.status}

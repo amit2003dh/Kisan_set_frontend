@@ -144,12 +144,14 @@ export default function CropDoctor() {
   };
 
   const downloadPDFReport = async () => {
+    console.log('PDF download attempted, analysisResult:', analysisResult);
     if (!analysisResult) {
       setError('No analysis result available for download');
       return;
     }
 
     try {
+      console.log('Making PDF download request...');
       const response = await fetch('http://localhost:5000/api/crop-analysis/download-crop-report', {
         method: 'POST',
         headers: {
@@ -161,8 +163,12 @@ export default function CropDoctor() {
         }),
       });
 
+      console.log('PDF response status:', response.status);
+      console.log('PDF response headers:', response.headers);
+
       if (response.ok) {
         const blob = await response.blob();
+        console.log('PDF blob size:', blob.size);
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -171,7 +177,10 @@ export default function CropDoctor() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+        console.log('PDF download completed');
       } else {
+        const errorText = await response.text();
+        console.error('PDF download failed:', response.status, errorText);
         setError('Failed to generate PDF report');
       }
     } catch (err) {

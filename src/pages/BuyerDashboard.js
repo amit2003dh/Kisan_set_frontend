@@ -160,7 +160,7 @@ export default function BuyerDashboard() {
               }}
             >
               <h3 style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "8px" }}>Total Spent</h3>
-              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>₹{stats.totalSpent}</p>
+              <p style={{ fontSize: "32px", fontWeight: "700", color: "var(--primary-green)" }}>₹{stats.totalSpent.toFixed(2)}</p>
               <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>All purchases</p>
               <p style={{ fontSize: "11px", color: "var(--primary-green)", marginTop: "8px" }}>Click to view details →</p>
             </Link>
@@ -207,7 +207,7 @@ export default function BuyerDashboard() {
                         {order.itemType === "crop" ? "🌾 Crop" : "🛒 Product"} Order
                       </p>
                       <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)" }}>
-                        {order.itemId?.name || "Item"} - ₹{order.total}
+                        {order.itemId?.name || "Item"} - ₹{order.total.toFixed(2)}
                       </p>
                     </div>
                     <div style={{ textAlign: "right" }}>

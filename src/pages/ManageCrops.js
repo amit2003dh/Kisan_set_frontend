@@ -846,8 +846,9 @@ export default function ManageCrops() {
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       {editingCrop.images.map((image, index) => {
                         const imageUrl = image.startsWith("http") ? image : `${STATIC_BASE_URL}${image}`;
+                        const isPrimary = editingCrop.primaryImageIndex === index;
                         return (
-                          <div key={`crop-image-${index}`} style={{ position: "relative" }}>
+                          <div key={`crop-image-${index}-${isPrimary}`} style={{ position: "relative" }}>
                             <img
                               src={imageUrl}
                               alt={`Crop image ${index + 1}`}
@@ -856,9 +857,9 @@ export default function ManageCrops() {
                                 height: "80px",
                                 objectFit: "cover",
                                 borderRadius: "var(--border-radius-sm)",
-                                border: editingCrop.primaryImageIndex === index ? "2px solid var(--primary-green)" : "2px solid var(--border)",
-                                opacity: editingCrop.primaryImageIndex === index ? 1 : 0.8,
-                                transition: "border 0.2s ease, opacity 0.2s ease"
+                                border: isPrimary ? "2px solid var(--primary-green)" : "2px solid var(--border)",
+                                opacity: isPrimary ? 1 : 0.8,
+                                transition: "none" // Remove transition to prevent blinking
                               }}
                               onError={(e) => {
                                 e.target.src = "https://via.placeholder.com/80x80/4caf50/ffffff?text=🌾";
@@ -895,7 +896,7 @@ export default function ManageCrops() {
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  transition: "background 0.2s ease"
+                                  transition: "none" // Remove transition to prevent blinking
                                 }}
                                 onMouseEnter={(e) => {
                                   e.target.style.background = "rgba(244, 67, 54, 1)";
@@ -907,7 +908,7 @@ export default function ManageCrops() {
                               >
                                 ×
                               </button>
-                              {editingCrop.primaryImageIndex !== index && (
+                              {!isPrimary && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -928,7 +929,7 @@ export default function ManageCrops() {
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    transition: "background 0.2s ease"
+                                    transition: "none" // Remove transition to prevent blinking
                                   }}
                                   onMouseEnter={(e) => {
                                     e.target.style.background = "rgba(76, 175, 80, 1)";
@@ -942,7 +943,7 @@ export default function ManageCrops() {
                                 </button>
                               )}
                             </div>
-                            {editingCrop.primaryImageIndex === index && (
+                            {isPrimary && (
                               <div style={{
                                 position: "absolute",
                                 bottom: "2px",

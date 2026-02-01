@@ -104,7 +104,12 @@ export const CartProvider = ({ children }) => {
       const availableStock = item.type === "crop" 
         ? (item.quantity !== undefined ? item.quantity : null)
         : (item.stock !== undefined ? item.stock : null);
-      const quantityToAdd = 1; // Always add 1 at a time
+      
+      // Use the quantity from the item parameter for products, but default to 1 for crops
+      // unless explicitly specified
+      const quantityToAdd = item.type === "crop" 
+        ? (item.cartQuantity !== undefined ? item.cartQuantity : 1)
+        : (item.quantity || 1);
 
       if (existingItem) {
         // Update quantity if item already exists

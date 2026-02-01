@@ -6,8 +6,6 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [lastScrollY, setLastScrollY] = useState(0);
-  const [navbarVisible, setNavbarVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -22,54 +20,14 @@ export default function Navbar() {
   const profilePhoto = userData?.profilePhoto;
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-  // Handle scroll effect with hide/show behavior
+  // Handle scroll effect for styling only
   useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-    let scrollTimeout = null;
-
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
-          
-          // Only update if scroll difference is significant (to prevent vibration)
-          const scrollDelta = Math.abs(currentScrollY - lastScrollY);
-          
-          if (scrollDelta > 10) { // Increased threshold to reduce flickering
-            // Hide navbar when scrolling down, show when scrolling up
-            if (currentScrollY > lastScrollY && currentScrollY > 50) {
-              setNavbarVisible(false);
-            } else {
-              setNavbarVisible(true);
-            }
-            
-            // Set scrolled state for styling
-            setScrolled(currentScrollY > 20);
-            lastScrollY = currentScrollY;
-          }
-          
-          ticking = false;
-        });
-        ticking = true;
-      }
+      setScrolled(window.scrollY > 20);
     };
 
-    // Debounce scroll events to reduce flickering
-    const debouncedHandleScroll = () => {
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-      scrollTimeout = setTimeout(handleScroll, 16); // ~60fps
-    };
-
-    window.addEventListener("scroll", debouncedHandleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", debouncedHandleScroll);
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Handle mobile detection
@@ -190,8 +148,7 @@ export default function Navbar() {
     <>
       {/* Add padding to body to prevent content from being hidden behind navbar */}
       <div style={{
-        height: navbarVisible ? (isMobile ? "60px" : "70px") : (isMobile ? "30px" : "35px"),
-        transition: "height 0.2s ease-out"
+        height: isMobile ? "60px" : "70px"
       }} />
       
       <nav style={{
@@ -199,14 +156,14 @@ export default function Navbar() {
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 1000,
+        zIndex: 9999,
         height: isMobile ? "60px" : "70px",
         background: scrolled ? "rgba(255, 255, 255, 0.95)" : "rgba(255, 255, 255, 1)",
         backdropFilter: scrolled ? "blur(10px)" : "none",
         boxShadow: scrolled ? "0 2px 20px rgba(0,0,0,0.1)" : "none",
         transition: "background 0.2s ease-out, backdrop-filter 0.2s ease-out, box-shadow 0.2s ease-out",
         borderBottom: scrolled ? "1px solid rgba(0,0,0,0.1)" : "1px solid var(--border-color)",
-        transform: navbarVisible ? "translateY(0)" : (isMobile ? "translateY(-30px)" : "translateY(-35px)"),
+        transform: "translateY(0)",
         willChange: "transform"
       }}>
         <div style={{
@@ -266,7 +223,10 @@ export default function Navbar() {
             </Link>
           ) : (
             <Link 
-              to="/crops" 
+              to={userData?.role === "farmer" ? "/farmer" : 
+                  userData?.role === "seller" ? "/seller" : 
+                  userData?.role === "delivery_partner" ? "/delivery-partner" : 
+                  userData ? "/buyer" : "/crops"} 
               style={{
                 textDecoration: "none",
                 fontSize: isMobile ? "20px" : "24px",
@@ -701,7 +661,7 @@ export default function Navbar() {
               right: 0,
               bottom: 0,
               background: "rgba(0,0,0,0.5)",
-              zIndex: 999
+              zIndex: 9998
             }}
             onClick={() => setShowMobileMenu(false)}
           />

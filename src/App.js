@@ -8,7 +8,7 @@ import DeliveryPartnerOrders from "./pages/DeliveryPartnerOrders";
 import DeliveryDetails from "./pages/DeliveryDetails";
 import DeliveryEarnings from "./pages/DeliveryEarnings";
 import DeliveryPerformance from "./pages/DeliveryPerformance";
-import DeliveryCommunication from "./pages/DeliveryCommunication";
+import DeliveryCommunication from "./pages/DeliveryPartnerCommunication";
 import DeliveryMapView from "./pages/DeliveryMapView";
 import DeliveryQueue from "./pages/DeliveryQueue";
 import ManageCrops from "./pages/ManageCrops";
@@ -17,6 +17,7 @@ import CropList from "./pages/CropList";
 import AddCrop from "./pages/AddCrop";
 import AddProduct from "./pages/AddProduct";
 import ProductStore from "./pages/ProductStore";
+import ProductDetail from "./pages/ProductDetail";
 import Orders from "./pages/Orders";
 import DeliveryPartnerRegistration from './pages/DeliveryPartnerRegistration';
 import SellerOrders from "./pages/SellerOrders";
@@ -63,12 +64,14 @@ function AppContent() {
         <Route path="/plant-analysis" element={<ProtectedRoute requiredRole="seller" excludeRoles={["delivery_partner"]}><PlantAnalysis /></ProtectedRoute>} />
         <Route path="/crops" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><CropList /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><ProductStore /></ProtectedRoute>} />
+        <Route path="/products/:id" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><ProductDetail /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute excludeRoles={["delivery_partner", "seller"]}><Cart /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><Orders /></ProtectedRoute>} />
         <Route path="/seller-orders" element={<ProtectedRoute requiredRole={["seller", "farmer"]}><SellerOrders /></ProtectedRoute>} />
         <Route path="/orders/:orderId/communication" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><OrderCommunication /></ProtectedRoute>} />
         <Route path="/orders/:orderId/delivery-chat" element={<ProtectedRoute excludeRoles={["seller", "farmer"]}><DeliveryPartnerCommunication /></ProtectedRoute>} />
         <Route path="/tracking" element={<ProtectedRoute><Tracking /></ProtectedRoute>} />
+        <Route path="/tracking/:deliveryId" element={<ProtectedRoute><Tracking /></ProtectedRoute>} />
         <Route path="/crop-doctor" element={<ProtectedRoute excludeRoles={["delivery_partner"]}><CropDoctor /></ProtectedRoute>} />
         <Route path="/payment" element={<ProtectedRoute excludeRoles={["delivery_partner", "seller"]}><Payment /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

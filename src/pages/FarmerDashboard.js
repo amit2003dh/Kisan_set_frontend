@@ -11,6 +11,17 @@ export default function FarmerDashboard() {
   const [listening, setListening] = useState(false);
   const [voiceResult, setVoiceResult] = useState("");
   const [recentProducts, setRecentProducts] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // Mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
   const fetchStats = async () => {
@@ -328,23 +339,66 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
     { path: "/orders", label: "My Purchase Orders", icon: "🛒", color: "#f57c00" },
     { path: "/products", label: "Buy Products", icon: "🛒", color: "#f57c00" },
     { path: "/cart", label: "My Cart", icon: "🛍️", color: "#7b1fa2" },
-    { path: "/crop-doctor", label: "Crop Doctor", icon: "👨‍⚕️", color: "#d32f2f" },
-    { path: "/tracking", label: "Track Delivery", icon: "📍", color: "#7b1fa2" },
+    { path: "/crop-doctor", label: "Crop Doctor", icon: "👨‍⚕️", color: "#d32f2f" }
   ];
 
   return (
-    <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
-      <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="container" style={{ 
+      paddingTop: isMobile ? "20px" : "40px", 
+      paddingBottom: isMobile ? "20px" : "40px",
+      padding: isMobile ? "20px 16px" : "40px 20px"
+    }}>
+      <div className="page-header" style={{ marginBottom: isMobile ? "24px" : "32px" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: isMobile ? "flex-start" : "center",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? "16px" : "0"
+        }}>
           <div>
-            <h1>👨‍🌾 Farmer Dashboard</h1>
-            <p>Manage your crops, orders, and grow your business</p>
+            <h1 style={{ 
+              fontSize: isMobile ? "24px" : "32px",
+              marginBottom: isMobile ? "8px" : "16px"
+            }}>
+              👨‍🌾 Farmer Dashboard
+            </h1>
+            <p style={{ 
+              fontSize: isMobile ? "14px" : "16px",
+              color: "var(--text-secondary)",
+              margin: 0
+            }}>
+              Manage your crops, orders, and grow your business
+            </p>
           </div>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <Link to="/seller-orders" className="btn btn-primary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+          <div style={{ 
+            display: "flex", 
+            gap: isMobile ? "8px" : "12px",
+            flexDirection: isMobile ? "column" : "row",
+            width: isMobile ? "100%" : "auto"
+          }}>
+            <Link 
+              to="/seller-orders" 
+              className="btn btn-primary" 
+              style={{ 
+                fontSize: isMobile ? "13px" : "14px", 
+                padding: isMobile ? "12px 16px" : "10px 20px",
+                width: isMobile ? "100%" : "auto",
+                textAlign: "center"
+              }}
+            >
               🌾 Crop Sales
             </Link>
-            <Link to="/orders" className="btn btn-secondary" style={{ fontSize: "14px", padding: "10px 20px" }}>
+            <Link 
+              to="/orders" 
+              className="btn btn-secondary" 
+              style={{ 
+                fontSize: isMobile ? "13px" : "14px", 
+                padding: isMobile ? "12px 16px" : "10px 20px",
+                width: isMobile ? "100%" : "auto",
+                textAlign: "center"
+              }}
+            >
               🛒 My Purchases
             </Link>
           </div>
@@ -352,37 +406,63 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-4" style={{ marginBottom: "40px" }}>
+      <div className="grid" style={{ 
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+        gap: isMobile ? "16px" : "20px",
+        marginBottom: isMobile ? "32px" : "40px"
+      }}>
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
-          border: "none"
+          border: "none",
+          padding: isMobile ? "20px 16px" : "24px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
         }}
         onClick={() => navigate("/manage-crops")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(25, 118, 210, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
         >
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🌾</div>
-          <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>🌾</div>
+          <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.crops}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>My Crops</div>
+          <div style={{ fontSize: isMobile ? "12px" : "14px", opacity: 0.9 }}>My Crops</div>
         </div>
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
           color: "white",
-          border: "none"
+          border: "none",
+          padding: isMobile ? "20px 16px" : "24px",
+          cursor: "pointer",
+          transition: "transform 0.2s, box-shadow 0.2s"
         }}
         onClick={() => navigate("/seller-orders")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-4px)";
+          e.currentTarget.style.boxShadow = "0 8px 25px rgba(25, 118, 210, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
         >
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>📦</div>
-          <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>📦</div>
+          <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.orders}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Sales</div>
+          <div style={{ fontSize: isMobile ? "12px" : "14px", opacity: 0.9 }}>Crop Sales</div>
         </div>
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)", 
           color: "white", 
-          padding: "24px", 
+          padding: isMobile ? "20px 16px" : "24px", 
           borderRadius: "12px", 
           textAlign: "center",
           cursor: "pointer",
@@ -397,16 +477,16 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>💰</div>
-          <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>💰</div>
+          <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : `₹${stats.revenue.toLocaleString()}`}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Crop Revenue</div>
+          <div style={{ fontSize: isMobile ? "12px" : "14px", opacity: 0.9 }}>Crop Revenue</div>
         </div>
         <div className="card" style={{ 
           background: "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)", 
           color: "white", 
-          padding: "24px", 
+          padding: isMobile ? "20px 16px" : "24px", 
           borderRadius: "12px", 
           textAlign: "center",
           cursor: "pointer",
@@ -421,11 +501,11 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🛒</div>
-          <div style={{ fontSize: "36px", fontWeight: "700", marginBottom: "4px" }}>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>🛒</div>
+          <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.purchaseOrders || 0}
           </div>
-          <div style={{ fontSize: "14px", opacity: 0.9 }}>Purchase Orders</div>
+          <div style={{ fontSize: isMobile ? "12px" : "14px", opacity: 0.9 }}>Purchase Orders</div>
         </div>
       </div>
 
@@ -555,11 +635,18 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
       </div>
 
       {/* Quick Actions */}
-      <div>
-        <h2 style={{ marginBottom: "24px", fontSize: "24px", color: "var(--text-primary)" }}>
+      <div style={{ marginBottom: isMobile ? "32px" : "40px" }}>
+        <h2 style={{ 
+          marginBottom: isMobile ? "20px" : "24px", 
+          fontSize: isMobile ? "20px" : "24px", 
+          color: "var(--text-primary)" 
+        }}>
           Quick Actions
         </h2>
-        <div className="grid grid-3">
+        <div className="grid" style={{
+          gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+          gap: isMobile ? "16px" : "20px"
+        }}>
           {quickActions.map((action) => (
             <Link
               key={action.path}
@@ -569,7 +656,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
               <div className="card" style={{
                 cursor: "pointer",
                 borderLeft: `4px solid ${action.color}`,
-                transition: "all 0.3s"
+                transition: "all 0.3s",
+                padding: isMobile ? "20px 16px" : "24px",
+                textAlign: "center"
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-4px)";
@@ -581,8 +670,8 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
               }}
               >
                 <div style={{ 
-                  fontSize: "32px", 
-                  marginBottom: "12px",
+                  fontSize: isMobile ? "28px" : "32px", 
+                  marginBottom: isMobile ? "10px" : "12px",
                   display: "inline-block",
                   padding: "12px",
                   background: `${action.color}15`,
@@ -593,7 +682,7 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
                 <h3 style={{ 
                   margin: 0, 
                   color: "var(--text-primary)",
-                  fontSize: "18px",
+                  fontSize: isMobile ? "14px" : "16px",
                   fontWeight: "600"
                 }}>
                   {action.label}

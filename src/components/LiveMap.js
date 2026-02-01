@@ -27,7 +27,13 @@ const destinationIcon = L.divIcon({
   className: "destination-marker"
 });
 
-export default function LiveMap({ location, destination, useLiveLocation = false, onLocationUpdate }) {
+const pickupIcon = L.divIcon({
+  html: '<div style="background: #4caf50; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">🏪</div>',
+  iconSize: [30, 30],
+  className: "pickup-marker"
+});
+
+export default function LiveMap({ location, destination, pickupLocation, useLiveLocation = false, onLocationUpdate }) {
   const [currentLocation, setCurrentLocation] = useState({ lat: 0, lng: 0 }); // Start with empty location
   const [watchId, setWatchId] = useState(null);
   const [locationError, setLocationError] = useState("");
@@ -306,6 +312,23 @@ export default function LiveMap({ location, destination, useLiveLocation = false
             dashArray="10, 10"
           />
         </>
+      )}
+
+      {/* Pickup Location */}
+      {pickupLocation && pickupLocation.lat !== 0 && pickupLocation.lng !== 0 && (
+        <Marker 
+          position={[pickupLocation.lat, pickupLocation.lng]} 
+          icon={pickupIcon}
+        >
+          <Popup>
+            <div style={{ textAlign: "center" }}>
+              <strong>🏪 Pickup Location</strong>
+              <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                {pickupLocation.address}
+              </div>
+            </div>
+          </Popup>
+        </Marker>
       )}
 
       {/* Location accuracy circle for live tracking */}

@@ -22,10 +22,6 @@ export default function Profile() {
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-  useEffect(() => {
-    fetchUserProfile();
-  }, [fetchUserProfile]);
-
   const fetchUserProfile = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -49,8 +45,7 @@ export default function Profile() {
         location: data.location || ""
       });
       if (data.profilePhoto) {
-        // Add timestamp to ensure fresh image load
-        setPhotoPreview(`${STATIC_BASE_URL}${data.profilePhoto}?t=${Date.now()}`);
+        setPhotoPreview(`${STATIC_BASE_URL}${data.profilePhoto}`);
       } else {
         setPhotoPreview(null);
       }
@@ -58,6 +53,10 @@ export default function Profile() {
     
     setLoading(false);
   }, [navigate]);
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
