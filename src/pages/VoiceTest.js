@@ -10,7 +10,7 @@ export default function VoiceTest() {
     setLoading(true);
     setTestResult("Testing Gemini API...");
     
-    try {
+    try {    
       const { data, error } = await apiCall(() =>
         API.post("/gemini/voice-intent", { 
           text: "मेरी फसल पीली है क्या करूं?",

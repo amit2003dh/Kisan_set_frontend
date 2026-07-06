@@ -177,7 +177,7 @@ export default function DeliveryDetails() {
           <h2 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>📦 Delivery Not Found</h2>
           <p>The delivery you're looking for doesn't exist or has been removed.</p>
           <button
-            onClick={() => navigate("/delivery-partner/dashboard")}
+            onClick={() => navigate("/delivery-partner")}
             className="btn btn-primary"
           >
             ← Back to Dashboard
