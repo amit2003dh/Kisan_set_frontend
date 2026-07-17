@@ -103,7 +103,7 @@ export default function Login() {
     }
   }, [navigate]);
 
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loginForm, setLoginForm] = useState({ email: "amitg@gmail.com", password: "asdfgh" });
   const [signupForm, setSignupForm] = useState({
     name: "",
     email: "",
@@ -149,6 +149,40 @@ export default function Login() {
         // Not verified delivery partner - go to dashboard to see registration prompt
         navigate("/delivery-partner");
       }
+    } else if (data.user.role === "farmer") {
+      navigate("/farmer");
+    } else if (data.user.role === "buyer") {
+      navigate("/buyer");
+    } else if (data.user.role === "seller") {
+      navigate("/seller");
+    } else {
+      navigate("/crops");
+    }
+  };
+
+  const handleSandboxLogin = async () => {
+    setLoginForm({ email: "amitg@gmail.com", password: "asdfgh" });
+    setLoading(true);
+    setError("");
+
+    const { data, error: err } = await apiCall(() =>
+      API.post("/users/login", { email: "amitg@gmail.com", password: "asdfgh" })
+    );
+
+    if (err || !data?.success) {
+      setError(err || "Sandbox login failed. Please check your credentials.");
+      setLoading(false);
+      return;
+    }
+
+    // Save token and user data
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("userRole", data.user.role);
+
+    // Check delivery partner registration status and redirect accordingly
+    if (data.user.role === "delivery_partner") {
+      navigate("/delivery-partner");
     } else if (data.user.role === "farmer") {
       navigate("/farmer");
     } else if (data.user.role === "buyer") {
@@ -640,6 +674,40 @@ export default function Login() {
               ) : (
                 "Login"
               )}
+            </button>
+
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              margin: "18px 0 12px 0" 
+            }}>
+              <hr style={{ flex: 1, border: "none", borderTop: "1px dashed var(--border-color, #e0e0e0)" }} />
+              <span style={{ padding: "0 10px", fontSize: "11px", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "1px" }}>Sandbox</span>
+              <hr style={{ flex: 1, border: "none", borderTop: "1px dashed var(--border-color, #e0e0e0)" }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSandboxLogin}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "10px",
+                backgroundColor: "rgba(76, 175, 80, 0.08)",
+                border: "1px solid var(--primary-green)",
+                borderRadius: "8px",
+                color: "var(--primary-green)",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                transition: "all 0.2s"
+              }}
+            >
+              ⚡ Fast Sandbox Login
             </button>
           </form>
         ) : (
