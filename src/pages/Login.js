@@ -103,7 +103,7 @@ export default function Login() {
     }
   }, [navigate]);
 
-  const [loginForm, setLoginForm] = useState({ email: "amitg@gmail.com", password: "asdfgh" });
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({
     name: "",
     email: "",
