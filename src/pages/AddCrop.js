@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../api/api";
-import { apiCall } from "../api/api";
+import API, { apiCall } from "../api/api";
 import LiveMap from "../components/LiveMap";
 
 export default function AddCrop() {
   const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(false);
   
   const [crop, setCrop] = useState({ 
     name: "", 
@@ -19,21 +16,10 @@ export default function AddCrop() {
     qualityGrade: "A",
     minimumOrder: "1",
     availableUntil: "",
-    contactInfo: {
-      phone: "",
-      email: "",
-      preferredContact: "phone"
-    },
-    location: {
-      address: "",
-      city: "",
-      state: "",
-      pincode: "",
-      lat: 0,
-      lng: 0,
-      landmark: ""
-    }
+    contactInfo: { phone: "", email: "", preferredContact: "phone" },
+    location: { address: "", city: "", state: "", pincode: "", lat: 0, lng: 0, landmark: "" }
   });
+
   const [image, setImage] = useState(null);
   const [images, setImages] = useState([]);
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
@@ -43,261 +29,147 @@ export default function AddCrop() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
-  const [originalAddress, setOriginalAddress] = useState(""); // Store original address
 
-  // Check device type and orientation
-  useEffect(() => {
-    const checkDevice = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      setIsMobile(width < 768);
-      setIsPortrait(height > width);
-    };
-
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-    window.addEventListener('orientationchange', checkDevice);
-    
-    return () => {
-      window.removeEventListener('resize', checkDevice);
-      window.removeEventListener('orientationchange', checkDevice);
-    };
-  }, []);
-
-  // Load saved address from localStorage on component mount
   useEffect(() => {
     const savedAddress = localStorage.getItem("farmAddress");
     if (savedAddress) {
       setCrop(prev => ({
         ...prev,
-        location: {
-          ...prev.location,
-          address: savedAddress
-        }
+        location: { ...prev.location, address: savedAddress }
       }));
-      setOriginalAddress(savedAddress);
     }
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setCrop({ ...crop, [parent]: { ...crop[parent], [child]: value } });
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
+      setCrop(prev => ({ ...prev, [parent]: { ...prev[parent], [child]: value } }));
     } else {
-      setCrop({ ...crop, [name]: value });
+      setCrop(prev => ({ ...prev, [name]: value }));
     }
     setError("");
   };
 
   const handleLocationChange = (e) => {
     const { name, value } = e.target;
-    setCrop({ 
-      ...crop, 
-      location: { ...crop.location, [name]: value } 
-    });
-    
-    // Save address to localStorage when user manually changes it
-    if (name === 'address') {
+    setCrop(prev => ({
+      ...prev,
+      location: { ...prev.location, [name]: value }
+    }));
+    if (name === "address") {
       localStorage.setItem("farmAddress", value);
-      setOriginalAddress(value);
     }
-    
     setError("");
   };
 
   const handleLocationUpdate = (updatedLocation) => {
-    console.log("Live location update received:", updatedLocation);
     setCrop(prev => ({
       ...prev,
-      location: {
-        ...prev.location, // Preserve existing location data (address, city, etc.)
-        lat: updatedLocation.lat,
-        lng: updatedLocation.lng
-      }
+      location: { ...prev.location, lat: updatedLocation.lat, lng: updatedLocation.lng }
     }));
   };
 
   const predictCoordinatesFromAddress = async () => {
-    // Use current address if user has entered one, otherwise use saved address
-    const addressToUse = crop.location.address && crop.location.address.trim() !== "" 
-      ? crop.location.address 
-      : originalAddress;
-    
+    const addressToUse = crop.location.address;
     if (!addressToUse) {
-      setError("Please enter an address first or use Test Address (only works if farm address is empty)");
+      setError("Please enter farm address first");
       return;
     }
 
-    console.log("Predicting coordinates for address:", addressToUse);
     setError("");
     setSuccess("");
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressToUse)}&limit=1`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Geocoding response:", data);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressToUse)}&limit=1`);
+      const data = await res.json();
       
       if (data && data.length > 0) {
-        const coords = {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon)
-        };
-        
-        console.log("Parsed coordinates:", coords);
-        console.log("Address data:", data[0].address);
-        
-        setCrop(prev => {
-          const updatedCrop = {
-            ...prev,
-            location: {
-              ...prev.location,
-              lat: coords.lat,
-              lng: coords.lng,
-              city: data[0].address?.city || data[0].address?.town || prev.location.city,
-              state: data[0].address?.state || prev.location.state,
-              pincode: data[0].address?.postcode || prev.location.pincode
-            }
-          };
-          console.log("Updated crop:", updatedCrop);
-          return updatedCrop;
-        });
-        
-        // Only save if user manually entered the address
-        if (crop.location.address && crop.location.address.trim() !== "") {
-          localStorage.setItem("farmAddress", addressToUse);
-          setOriginalAddress(addressToUse);
-        }
-        
-        setSuccess("✅ Coordinates predicted successfully!");
+        const item = data[0];
+        setCrop(prev => ({
+          ...prev,
+          location: {
+            ...prev.location,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            city: item.address?.city || item.address?.town || prev.location.city,
+            state: item.address?.state || prev.location.state,
+            pincode: item.address?.postcode || prev.location.pincode
+          }
+        }));
+        setSuccess("Coordinates predicted successfully!");
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        console.log("No results found for address");
-        setError("Could not find coordinates for this address. Please try a more specific address.");
+        setError("Could not find coordinates for this address.");
       }
-    } catch (error) {
-      console.error("Error predicting coordinates:", error);
-      setError("Error predicting coordinates. Please check your internet connection and try again.");
+    } catch (err) {
+      setError("Failed to geocode address");
     }
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setFieldErrors({ image: "Image size must be less than 5MB" });
-        return;
-      }
-      
-      // Store the actual file for upload
-      setImage(file);
-      
-      // Create preview for display
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imagePreviewUrl = reader.result;
-        setImagePreview(imagePreviewUrl);
-        
-        // For now, we'll handle single image upload since backend expects single file
-        // The backend will store it in the images array
-        setImages([imagePreviewUrl]);
-        setPrimaryImageIndex(0);
-        
-        // Clear image field error when valid file is selected
-        if (fieldErrors.image) {
-          setFieldErrors({ ...fieldErrors, image: "" });
-        }
-        setError("");
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setFieldErrors({ image: "Image size must be less than 5MB" });
+      return;
     }
+
+    setImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+      setImages([reader.result]);
+      setPrimaryImageIndex(0);
+      setFieldErrors({});
+      setError("");
+    };
+    reader.readAsDataURL(file);
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    
-    // Validation
-    if (!crop.name.trim()) {
-      setError("Please enter crop name");
-      return;
-    }
-    if (!crop.quantity || parseFloat(crop.quantity) <= 0) {
-      setError("Please enter a valid quantity (in kg)");
-      return;
-    }
-    if (!crop.price || parseFloat(crop.price) <= 0) {
-      setError("Please enter a valid price");
-      return;
-    }
-    if (!crop.location.address.trim()) {
-      setError("Please enter farm location address");
-      return;
-    }
-    if (!crop.contactInfo.phone.trim()) {
-      setError("Please enter contact phone number");
-      return;
-    }
-    if (crop.location.lat === 0 || crop.location.lng === 0) {
-      setError("Please get your location coordinates or use current location");
-      return;
-    }
+
+    if (!crop.name.trim()) return setError("Please enter crop name");
+    if (!crop.quantity || parseFloat(crop.quantity) <= 0) return setError("Please enter a valid quantity in kg");
+    if (!crop.price || parseFloat(crop.price) <= 0) return setError("Please enter a valid price");
+    if (!crop.location.address.trim()) return setError("Please enter farm location address");
+    if (!crop.contactInfo.phone.trim()) return setError("Please enter contact phone number");
 
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      // Create FormData for file upload
       const formData = new FormData();
-      
-      // Add all crop fields
-      formData.append('name', crop.name.trim());
-      formData.append('quantity', parseFloat(crop.quantity));
-      formData.append('price', parseFloat(crop.price));
-      formData.append('harvestDate', crop.harvestDate || new Date());
-      formData.append('status', "Available");
-      formData.append('description', crop.description || '');
-      formData.append('category', crop.category || '');
-      formData.append('qualityGrade', crop.qualityGrade);
-      formData.append('minimumOrder', parseInt(crop.minimumOrder) || 1);
-      formData.append('availableUntil', crop.availableUntil || '');
-      
-      // Add nested objects as JSON strings
-      formData.append('contactInfo', JSON.stringify(crop.contactInfo));
-      formData.append('location', JSON.stringify(crop.location));
-      
-      // Add images array and primaryImageIndex as JSON
-      formData.append('images', JSON.stringify(images));
-      formData.append('primaryImageIndex', primaryImageIndex || 0);
-      
-      // Add image file if exists
-      if (image) {
-        formData.append('image', image);
-      }
-      
-      const { data, error: err } = await apiCall(() =>
-        API.post("/crops/add", formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        })
+      formData.append("name", crop.name.trim());
+      formData.append("quantity", parseFloat(crop.quantity));
+      formData.append("price", parseFloat(crop.price));
+      formData.append("harvestDate", crop.harvestDate || new Date().toISOString());
+      formData.append("status", "Available");
+      formData.append("description", crop.description || "");
+      formData.append("category", crop.category || "");
+      formData.append("qualityGrade", crop.qualityGrade);
+      formData.append("minimumOrder", parseInt(crop.minimumOrder) || 1);
+      formData.append("availableUntil", crop.availableUntil || "");
+      formData.append("contactInfo", JSON.stringify(crop.contactInfo));
+      formData.append("location", JSON.stringify(crop.location));
+      formData.append("images", JSON.stringify(images));
+      formData.append("primaryImageIndex", primaryImageIndex || 0);
+
+      if (image) formData.append("image", image);
+
+      const { error: err } = await apiCall(() =>
+        API.post("/crops/add", formData, { headers: { "Content-Type": "multipart/form-data" } })
       );
-      
+
       if (err) {
         setError(err);
         setLoading(false);
       } else {
         setSuccess("Crop added successfully! 🎉");
-        setTimeout(() => {
-          navigate("/crops");
-        }, 1500);
+        setTimeout(() => navigate("/crops"), 1200);
       }
     } catch (err) {
       setError(err.message || "Failed to add crop");
@@ -306,61 +178,19 @@ export default function AddCrop() {
   };
 
   return (
-    <div className="container" style={{ 
-      paddingTop: isMobile ? (isPortrait ? "20px" : "16px") : "40px", 
-      paddingBottom: isMobile ? (isPortrait ? "20px" : "16px") : "40px",
-      maxWidth: isMobile ? "100%" : (isPortrait ? "100%" : "600px"),
-      margin: isMobile ? "0" : "0 auto",
-      padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "40px 20px"
-    }}>
-      <div className="page-header">
-        <h1 style={{ 
-          fontSize: isMobile ? (isPortrait ? "24px" : "20px") : "32px",
-          marginBottom: isMobile ? "8px" : "12px"
-        }}>
-          ➕ Add New Crop
-        </h1>
-        <p style={{ 
-          fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "16px",
-          color: "var(--text-secondary)"
-        }}>
-          List your crop for sale on the marketplace
-        </p>
+    <div className="container" style={{ padding: "30px 20px", maxWidth: "650px", margin: "0 auto" }}>
+      <div className="page-header" style={{ marginBottom: "20px" }}>
+        <h1>➕ Add New Crop</h1>
+        <p style={{ color: "var(--text-secondary)" }}>List your crop for sale on the marketplace</p>
       </div>
 
-      <div className="card" style={{ 
-        padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "24px"
-      }}>
+      <div className="card" style={{ padding: "24px" }}>
         <form onSubmit={submit}>
-          {error && (
-            <div className="error-message" style={{
-              fontSize: isMobile ? "14px" : "16px",
-              padding: isMobile ? "12px 16px" : "16px",
-              marginBottom: "16px"
-            }}>
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="success-message" style={{
-              fontSize: isMobile ? "14px" : "16px",
-              padding: isMobile ? "12px 16px" : "16px",
-              marginBottom: "16px"
-            }}>
-              {success}
-            </div>
-          )}
+          {error && <div className="error-message" style={{ padding: "12px", marginBottom: "16px" }}>{error}</div>}
+          {success && <div className="success-message" style={{ padding: "12px", marginBottom: "16px" }}>{success}</div>}
 
-          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: isMobile ? "6px" : "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-            }}>
-              Crop Name *
-            </label>
+          <div style={{ marginBottom: "18px" }}>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Crop Name *</label>
             <input
               className="input"
               name="name"
@@ -369,79 +199,44 @@ export default function AddCrop() {
               onChange={handleChange}
               disabled={loading}
               required
-              style={{
-                fontSize: isMobile ? "16px" : "14px", // Prevents zoom on iOS
-                padding: isMobile ? "12px" : "10px"
-              }}
             />
           </div>
 
-          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: isMobile ? "6px" : "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-            }}>
-              Quantity (kg) *
-            </label>
-            <input
-              className="input"
-              name="quantity"
-              type="number"
-              min="1"
-              step="0.1"
-              placeholder="Enter quantity in kg"
-              value={crop.quantity}
-              onChange={handleChange}
-              disabled={loading}
-              required
-              style={{
-                fontSize: isMobile ? "16px" : "14px",
-                padding: isMobile ? "12px" : "10px"
-              }}
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "18px" }}>
+            <div>
+              <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Quantity (kg) *</label>
+              <input
+                className="input"
+                name="quantity"
+                type="number"
+                min="1"
+                step="0.1"
+                placeholder="Quantity in kg"
+                value={crop.quantity}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Price per kg (₹) *</label>
+              <input
+                className="input"
+                name="price"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Price per kg"
+                value={crop.price}
+                onChange={handleChange}
+                disabled={loading}
+                required
+              />
+            </div>
           </div>
 
-          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: isMobile ? "6px" : "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-            }}>
-              Price per kg (₹) *
-            </label>
-            <input
-              className="input"
-              name="price"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Enter price per kg"
-              value={crop.price}
-              onChange={handleChange}
-              disabled={loading}
-              required
-              style={{
-                fontSize: isMobile ? "16px" : "14px",
-                padding: isMobile ? "12px" : "10px"
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: isMobile ? (isPortrait ? "20px" : "16px") : "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: isMobile ? "6px" : "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-            }}>
-              Harvest Date
-            </label>
+          <div style={{ marginBottom: "18px" }}>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Harvest Date</label>
             <input
               className="input"
               name="harvestDate"
@@ -449,38 +244,14 @@ export default function AddCrop() {
               value={crop.harvestDate}
               onChange={handleChange}
               disabled={loading}
-              style={{
-                fontSize: isMobile ? "16px" : "14px",
-                padding: isMobile ? "12px" : "10px"
-              }}
             />
           </div>
 
-          {/* Location Section */}
-          <div style={{ 
-            marginBottom: isMobile ? (isPortrait ? "28px" : "24px") : "32px", 
-            padding: isMobile ? (isPortrait ? "20px 16px" : "16px 12px") : "20px", 
-            background: "var(--background)", 
-            borderRadius: "var(--border-radius-sm)" 
-          }}>
-            <h3 style={{ 
-              marginBottom: isMobile ? "12px" : "16px", 
-              color: "var(--text-primary)",
-              fontSize: isMobile ? (isPortrait ? "18px" : "16px") : "20px"
-            }}>
-              📍 Farm Location
-            </h3>
-            
-            <div style={{ marginBottom: isMobile ? (isPortrait ? "16px" : "12px") : "16px" }}>
-              <label style={{
-                display: "block",
-                marginBottom: isMobile ? "6px" : "8px",
-                color: "var(--text-primary)",
-                fontWeight: "600",
-                fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-              }}>
-                Farm Address *
-              </label>
+          <div style={{ marginBottom: "24px", padding: "20px", background: "var(--background)", borderRadius: "var(--border-radius-sm)" }}>
+            <h3 style={{ marginBottom: "14px" }}>📍 Farm Location</h3>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Farm Address *</label>
               <textarea
                 className="input"
                 name="address"
@@ -489,547 +260,85 @@ export default function AddCrop() {
                 onChange={handleLocationChange}
                 disabled={loading}
                 required
-                rows={isMobile ? (isPortrait ? "3" : "2") : "2"}
-                style={{
-                  fontSize: isMobile ? "16px" : "14px",
-                  padding: isMobile ? "12px" : "10px"
-                }}
+                rows="2"
               />
             </div>
 
-            <div style={{ 
-              display: "grid", 
-              gridTemplateColumns: isMobile ? (isPortrait ? "1fr" : "1fr 1fr") : "1fr 1fr 1fr", 
-              gap: isMobile ? "8px" : "12px", 
-              marginBottom: isMobile ? (isPortrait ? "16px" : "12px") : "16px" 
-            }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "14px" }}>
               <div>
-                <label style={{
-                  display: "block",
-                  marginBottom: isMobile ? "6px" : "8px",
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-                }}>
-                  City
-                </label>
-                <input
-                  className="input"
-                  name="city"
-                  placeholder="City"
-                  value={crop.location.city}
-                  onChange={handleLocationChange}
-                  disabled={loading}
-                  style={{
-                    fontSize: isMobile ? "16px" : "14px",
-                    padding: isMobile ? "12px" : "10px"
-                  }}
-                />
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>City</label>
+                <input className="input" name="city" placeholder="City" value={crop.location.city} onChange={handleLocationChange} disabled={loading} />
               </div>
               <div>
-                <label style={{
-                  display: "block",
-                  marginBottom: isMobile ? "6px" : "8px",
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-                }}>
-                  State
-                </label>
-                <input
-                  className="input"
-                  name="state"
-                  placeholder="State"
-                  value={crop.location.state}
-                  onChange={handleLocationChange}
-                  disabled={loading}
-                  style={{
-                    fontSize: isMobile ? "16px" : "14px",
-                    padding: isMobile ? "12px" : "10px"
-                  }}
-                />
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>State</label>
+                <input className="input" name="state" placeholder="State" value={crop.location.state} onChange={handleLocationChange} disabled={loading} />
               </div>
               <div>
-                <label style={{
-                  display: "block",
-                  marginBottom: isMobile ? "6px" : "8px",
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: isMobile ? (isPortrait ? "14px" : "13px") : "14px"
-                }}>
-                  Pincode
-                </label>
-                <input
-                  className="input"
-                  name="pincode"
-                  placeholder="Pincode"
-                  value={crop.location.pincode}
-                  onChange={handleLocationChange}
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>Pincode</label>
+                <input className="input" name="pincode" placeholder="Pincode" value={crop.location.pincode} onChange={handleLocationChange} disabled={loading} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <span style={{ fontWeight: "600", fontSize: "14px" }}>Map Coordinates</span>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={predictCoordinatesFromAddress}
+                  disabled={loading || !crop.location.address}
+                  className="btn btn-secondary"
+                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                >
+                  🎯 Predict Coordinates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseCurrentLocation(!useCurrentLocation)}
                   disabled={loading}
-                  style={{
-                    fontSize: isMobile ? "16px" : "14px",
-                    padding: isMobile ? "12px" : "10px"
-                  }}
-                />
+                  className="btn btn-outline"
+                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                >
+                  {useCurrentLocation ? "📍 Live Location On" : "👤 Use My Location"}
+                </button>
               </div>
             </div>
 
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{
-                display: "block",
-                marginBottom: "8px",
-                color: "var(--text-primary)",
-                fontWeight: "600",
-                fontSize: "14px"
-              }}>
-                Landmark (Nearby location)
-              </label>
-              <input
-                className="input"
-                name="landmark"
-                placeholder="Nearby landmark"
-                value={crop.location.landmark}
-                onChange={handleLocationChange}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Location Map and Controls */}
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px"
-              }}>
-                <label style={{
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: "14px"
-                }}>
-                  📍 Location on Map
-                </label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={predictCoordinatesFromAddress}
-                    disabled={loading || !crop.location.address}
-                    style={{
-                      padding: "6px 12px",
-                      background: loading || !crop.location.address ? "var(--border-color)" : "var(--primary-blue)",
-                      color: loading || !crop.location.address ? "var(--text-secondary)" : "brown",
-                      border: "none",
-                      borderRadius: "var(--border-radius-sm)",
-                      cursor: loading || !crop.location.address ? "not-allowed" : "pointer",
-                      fontSize: "12px",
-                      fontWeight: "500"
-                    }}
-                  >
-                    🎯 Predict from Address
-                  </button>
-                  {/* <button
-                    type="button"
-                    onClick={() => {
-                      // Only fill if farm address is empty
-                      if (!crop.location.address || crop.location.address.trim() === "") {
-                        const testAddress = "Taj Mahal, Agra, Uttar Pradesh, India";
-                        setCrop(prev => ({
-                          ...prev,
-                          location: {
-                            ...prev.location,
-                            address: testAddress
-                          }
-                        }));
-                        setSuccess("🧪 Test address loaded! Click 'Predict from Address' to get coordinates.");
-                        setTimeout(() => setSuccess(""), 3000);
-                      } else {
-                        setError("🚫 Farm address already filled. Clear it first to use test address.");
-                        setTimeout(() => setError(""), 3000);
-                      }
-                    }}
-                    disabled={loading}
-                    style={{
-                      padding: "6px 12px",
-                      background: (!crop.location.address || crop.location.address.trim() === "") ? "var(--success)" : "var(--border-color)",
-                      color: (!crop.location.address || crop.location.address.trim() === "") ? "white" : "var(--text-secondary)",
-                      border: "none",
-                      borderRadius: "var(--border-radius-sm)",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      fontSize: "12px",
-                      fontWeight: "500"
-                    }}
-                  >
-                    🧪 Test Address
-                  </button> */}
-                  <button
-                    type="button"
-                    onClick={() => setUseCurrentLocation(!useCurrentLocation)}
-                    disabled={loading}
-                    style={{
-                      padding: "6px 12px",
-                      background: useCurrentLocation ? "var(--success)" : "var(--primary-blue)",
-                      color: "blue",
-                      border: "none",
-                      borderRadius: "var(--border-radius-sm)",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      fontSize: "12px",
-                      fontWeight: "500"
-                    }}
-                  >
-                    {useCurrentLocation ? "📍 Using Live Location" : "👤 Use My Location"}
-                  </button>
-                </div>
-              </div>
-              
-              {/* Map Container */}
-              <div style={{
-                height: "300px",
-                borderRadius: "var(--border-radius-sm)",
-                overflow: "hidden",
-                border: "1px solid var(--border-color)"
-              }}>
-                <LiveMap
-                  location={crop.location}
-                  destination={null}
-                  useLiveLocation={useCurrentLocation}
-                  onLocationUpdate={handleLocationUpdate}
-                />
-              </div>
-              
-              {/* Coordinates Display */}
-              <div style={{
-                display: "flex",
-                gap: "16px",
-                fontSize: "12px",
-                color: "var(--text-secondary)"
-              }}>
-                <span>Latitude: {crop.location.lat.toFixed(6) || "Not set"}</span>
-                <span>Longitude: {crop.location.lng.toFixed(6) || "Not set"}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-            Coordinates: {crop.location.lat.toFixed(6)}, {crop.location.lng.toFixed(6)}
-          </div>
-
-          <div style={{ marginBottom: "32px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: "14px"
-            }}>
-              Crop Image
-              <span style={{ color: "var(--text-secondary)", fontWeight: "400", fontSize: "12px", marginLeft: "4px" }}>
-                (Max size: 5MB)
-              </span>
-            </label>
-            <div style={{ border: "2px dashed var(--border)", borderRadius: "var(--border-radius-sm)", padding: "20px", textAlign: "center" }}>
-              {/* New Image Upload */}
-              <input
-                type="file"
-                id="crop-image-upload"
-                accept="image/*"
-                onChange={handleImageChange}
-                style={{ display: "none" }}
-              />
-              {/* New Image Preview */}
-              {imagePreview ? 
-                <div>
-                  <img
-                    src={imagePreview}
-                    alt="Crop preview"
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "200px",
-                      borderRadius: "var(--border-radius-sm)",
-                      marginBottom: "12px",
-                      objectFit: "contain"
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImage(null);
-                      setImagePreview(null);
-                      setImages([]);
-                      setPrimaryImageIndex(0);
-                      // Clear image field error when user removes image
-                      if (fieldErrors.image) {
-                        setFieldErrors({ ...fieldErrors, image: "" });
-                      }
-                    }}
-                    className="btn btn-secondary"
-                    style={{ marginTop: "8px" }}
-                  >
-                    Remove Image
-                  </button>
-                </div>
-               : (
-                <div>
-                  <div style={{ fontSize: "48px", marginBottom: "12px" }}>📷</div>
-                  <p style={{ color: "var(--text-secondary)", marginBottom: "12px", fontSize: "14px" }}>
-                    Upload crop image (optional)
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('crop-image-upload').click()}
-                    className="btn btn-primary"
-                    disabled={loading}
-                  >
-                    📤 Choose Image
-                  </button>
-                  {fieldErrors.image && (
-                    <div style={{
-                      color: "var(--error)",
-                      fontSize: "12px",
-                      marginTop: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}>
-                      <span style={{ fontSize: "14px" }}>⚠️</span>
-                      {fieldErrors.image}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: "14px"
-            }}>
-              Description
-            </label>
-            <textarea
-              className="input"
-              name="description"
-              placeholder="Describe your crop (variety, quality, growing methods, etc.)"
-              value={crop.description}
-              onChange={handleChange}
-              disabled={loading}
-              rows={4}
-            />
-          </div>
-
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: "14px"
-            }}>
-              Category
-            </label>
-            <select
-              className="select"
-              name="category"
-              value={crop.category}
-              onChange={handleChange}
-              disabled={loading}
-              required
-            >
-              <option value="">Select category</option>
-              <option value="vegetables">🥬 Vegetables</option>
-              <option value="fruits">🍎 Fruits</option>
-              <option value="grains">🌾 Grains</option>
-              <option value="pulses">🫘 Pulses</option>
-              <option value="spices">🌶️ Spices</option>
-              <option value="other">📦 Other</option>
-            </select>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-            <div>
-              <label style={{
-                display: "block",
-                marginBottom: "8px",
-                color: "var(--text-primary)",
-                fontWeight: "600",
-                fontSize: "14px"
-              }}>
-                Quality Grade
-              </label>
-              <select
-                className="select"
-                name="qualityGrade"
-                value={crop.qualityGrade}
-                onChange={handleChange}
-                disabled={loading}
-              >
-                <option value="A">⭐ Grade A (Premium)</option>
-                <option value="B">⭐ Grade B (Good)</option>
-                <option value="C">⭐ Grade C (Standard)</option>
-              </select>
-            </div>
-            <div>
-              <label style={{
-                display: "block",
-                marginBottom: "8px",
-                color: "var(--text-primary)",
-                fontWeight: "600",
-                fontSize: "14px"
-              }}>
-                Minimum Order (kg)
-              </label>
-              <input
-                className="input"
-                name="minimumOrder"
-                type="number"
-                min="1"
-                placeholder="1"
-                value={crop.minimumOrder}
-                onChange={handleChange}
-                disabled={loading}
+            <div style={{ height: "260px", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border-color)" }}>
+              <LiveMap
+                location={crop.location}
+                destination={null}
+                useLiveLocation={useCurrentLocation}
+                onLocationUpdate={handleLocationUpdate}
               />
             </div>
           </div>
 
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{
-              display: "block",
-              marginBottom: "8px",
-              color: "var(--text-primary)",
-              fontWeight: "600",
-              fontSize: "14px"
-            }}>
-              Available Until
-            </label>
-            <input
-              className="input"
-              name="availableUntil"
-              type="date"
-              value={crop.availableUntil}
-              onChange={handleChange}
-              disabled={loading}
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-
-          <div style={{ marginBottom: "32px", padding: "20px", background: "var(--background)", borderRadius: "var(--border-radius-sm)" }}>
-            <h3 style={{ marginBottom: "16px", color: "var(--text-primary)" }}>📞 Contact Information</h3>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+          <div style={{ marginBottom: "18px" }}>
+            <h3 style={{ marginBottom: "12px" }}>📞 Contact Details</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
-                <label style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: "14px"
-                }}>
-                  Phone Number
-                </label>
-                <input
-                  className="input"
-                  name="contactInfo.phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={crop.contactInfo.phone}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>Phone *</label>
+                <input className="input" name="contactInfo.phone" placeholder="Phone Number" value={crop.contactInfo.phone} onChange={handleChange} disabled={loading} required />
               </div>
               <div>
-                <label style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "var(--text-primary)",
-                  fontWeight: "600",
-                  fontSize: "14px"
-                }}>
-                  Email Address
-                </label>
-                <input
-                  className="input"
-                  name="contactInfo.email"
-                  type="email"
-                  placeholder="farmer@example.com"
-                  value={crop.contactInfo.email}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>Email</label>
+                <input className="input" name="contactInfo.email" placeholder="Email (optional)" value={crop.contactInfo.email} onChange={handleChange} disabled={loading} />
               </div>
-            </div>
-            
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{
-                display: "block",
-                marginBottom: "8px",
-                color: "var(--text-primary)",
-                fontWeight: "600",
-                fontSize: "14px"
-              }}>
-                Preferred Contact Method
-              </label>
-              <select
-                className="select"
-                name="contactInfo.preferredContact"
-                value={crop.contactInfo.preferredContact}
-                onChange={handleChange}
-                disabled={loading}
-              >
-                <option value="phone">📞 Phone</option>
-                <option value="email">📧 Email</option>
-                <option value="whatsapp">💬 WhatsApp</option>
-              </select>
             </div>
           </div>
 
-          <div style={{ 
-            display: "flex", 
-            gap: isMobile ? "12px" : "16px",
-            flexDirection: isMobile ? (isPortrait ? "column" : "row") : "row"
-          }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-              style={{ 
-                flex: 1,
-                fontSize: isMobile ? (isPortrait ? "16px" : "14px") : "16px",
-                padding: isMobile ? (isPortrait ? "14px 20px" : "12px 16px") : "12px 24px",
-                minHeight: isMobile ? "48px" : "44px"
-              }}
-            >
-              {loading ? (
-                <>
-                  <div className="loading-spinner" style={{
-                    width: isMobile ? "18px" : "20px",
-                    height: isMobile ? "18px" : "20px",
-                    borderWidth: "2px",
-                    margin: "0 8px 0 0",
-                    display: "inline-block"
-                  }}></div>
-                  Adding...
-                </>
-              ) : (
-                "➕ Add Crop"
-              )}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => navigate("/crops")}
-              disabled={loading}
-              style={{
-                fontSize: isMobile ? (isPortrait ? "16px" : "14px") : "16px",
-                padding: isMobile ? (isPortrait ? "14px 20px" : "12px 16px") : "12px 24px",
-                minHeight: isMobile ? "48px" : "44px"
-              }}
-            >
-              Cancel
-            </button>
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>📷 Crop Photo</label>
+            <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading} />
+            {fieldErrors.image && <div style={{ color: "red", fontSize: "13px", marginTop: "4px" }}>{fieldErrors.image}</div>}
+            {imagePreview && (
+              <img src={imagePreview} alt="Preview" style={{ marginTop: "10px", width: "100%", maxHeight: "200px", objectFit: "cover", borderRadius: "8px" }} />
+            )}
           </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: "100%", padding: "12px" }} disabled={loading}>
+            {loading ? "Adding Crop..." : "Publish Crop Listing"}
+          </button>
         </form>
       </div>
     </div>

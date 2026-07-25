@@ -8,7 +8,6 @@ import DeliveryPartnerOrders from "./pages/DeliveryPartnerOrders";
 import DeliveryDetails from "./pages/DeliveryDetails";
 import DeliveryEarnings from "./pages/DeliveryEarnings";
 import DeliveryPerformance from "./pages/DeliveryPerformance";
-import DeliveryCommunication from "./pages/DeliveryPartnerCommunication";
 import DeliveryMapView from "./pages/DeliveryMapView";
 import DeliveryQueue from "./pages/DeliveryQueue";
 import ManageCrops from "./pages/ManageCrops";
@@ -19,7 +18,7 @@ import AddProduct from "./pages/AddProduct";
 import ProductStore from "./pages/ProductStore";
 import ProductDetail from "./pages/ProductDetail";
 import Orders from "./pages/Orders";
-import DeliveryPartnerRegistration from './pages/DeliveryPartnerRegistration';
+import DeliveryPartnerRegistration from "./pages/DeliveryPartnerRegistration";
 import SellerOrders from "./pages/SellerOrders";
 import OrderCommunication from "./pages/OrderCommunication";
 import DeliveryPartnerCommunication from "./pages/DeliveryPartnerCommunication";
@@ -55,7 +54,7 @@ function AppContent() {
         <Route path="/delivery/:deliveryId" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryDetails /></ProtectedRoute>} />
         <Route path="/delivery-partner/earnings" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryEarnings /></ProtectedRoute>} />
         <Route path="/delivery-partner/performance" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPerformance /></ProtectedRoute>} />
-        <Route path="/delivery-partner/communication" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryCommunication /></ProtectedRoute>} />
+        <Route path="/delivery-partner/communication" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerCommunication /></ProtectedRoute>} />
         <Route path="/delivery-partner/map-view" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryMapView /></ProtectedRoute>} />
         <Route path="/manage-crops" element={<ProtectedRoute requiredRole="farmer" excludeRoles={["delivery_partner"]}><ManageCrops /></ProtectedRoute>} />
         <Route path="/manage-products" element={<ProtectedRoute requiredRole="seller" excludeRoles={["delivery_partner"]}><ManageProducts /></ProtectedRoute>} />
@@ -84,12 +83,10 @@ function AppContent() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <AppContent />
     </BrowserRouter>
   );
 }
-
-export default App;
