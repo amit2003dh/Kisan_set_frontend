@@ -1,12 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import API from "../api/api";
 import { apiCall } from "../api/api";
+import {
+  Bot,
+  Sparkles,
+  Send,
+  Lightbulb,
+  Sprout,
+  CloudRain,
+  Bug,
+  TrendingUp,
+  Wheat
+} from "lucide-react";
 
 export default function AIChatbot() {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "👋 Hello! I'm your AI farming assistant. I can help you with crop diseases, farming practices, weather advice, and more. How can I assist you today?",
+      text: "Hello! I'm your AI farming assistant. I can help you with crop diseases, farming practices, weather advice, and more. How can I assist you today?",
       sender: "bot",
       timestamp: new Date()
     }
@@ -72,55 +83,36 @@ export default function AIChatbot() {
     setMessages(prev => [...prev, userMessage]);
     setInputText("");
     setIsLoading(true);
-    setIsTyping(true);
 
-    // Add typing indicator
     const typingMessage = {
       id: Date.now() + 1,
-      text: "",
+      text: "Thinking...",
       sender: "bot",
       timestamp: new Date()
     };
     setMessages(prev => [...prev, typingMessage]);
+    setIsTyping(true);
 
     try {
       const { data, error } = await apiCall(() =>
-        API.post("/ai/chatbot", {
-          message: inputText,
-          conversationHistory: messages.slice(-5).map(msg => ({
-            text: msg.text,
-            sender: msg.sender
-          }))
-        })
+        API.post("/gemini/query", { prompt: inputText })
       );
 
       if (error) {
         throw new Error(error);
       }
 
-      // Remove typing indicator and add actual response
+      const responseText = data?.data?.response || data?.response || "I could not generate a response.";
+      await simulateTyping(responseText);
+
+    } catch (err) {
+      console.error("AI Chatbot Error:", err);
+      setIsTyping(false);
       setMessages(prev => {
         const newMessages = prev.filter(msg => msg.id !== typingMessage.id);
         return [...newMessages, {
           id: Date.now() + 2,
-          text: data.response || "I'm sorry, I couldn't process your request. Please try again.",
-          sender: "bot",
-          timestamp: new Date(),
-          suggestions: data.suggestions || []
-        }];
-      });
-
-      // Simulate typing effect
-      const finalMessage = data.response || "I'm sorry, I couldn't process your request. Please try again.";
-      await simulateTyping(finalMessage);
-
-    } catch (error) {
-      console.error("Chatbot error:", error);
-      setMessages(prev => {
-        const newMessages = prev.filter(msg => msg.id !== typingMessage.id);
-        return [...newMessages, {
-          id: Date.now() + 2,
-          text: "🔧 I'm having trouble connecting right now. Please try again later or contact our support team.",
+          text: "I'm having trouble connecting right now. Please try again later or contact our support team.",
           sender: "bot",
           timestamp: new Date()
         }];
@@ -138,18 +130,20 @@ export default function AIChatbot() {
   };
 
   const quickActions = [
-    { text: "🌱 What crops grow well in my region?", icon: "🌱" },
-    { text: "🌧️ What's the best irrigation method?", icon: "🌧️" },
-    { text: "🐛 How to identify common pests?", icon: "🐛" },
-    { text: "💰 Best practices for crop yield?", icon: "💰" },
-    { text: "🌾 When to harvest my crops?", icon: "🌾" },
-    { text: "🧪 Soil testing recommendations?", icon: "🧪" }
+    { text: "What crops grow well in my region?", Icon: Sprout },
+    { text: "What's the best irrigation method?", Icon: CloudRain },
+    { text: "How to identify common pests?", Icon: Bug },
+    { text: "Best practices for crop yield?", Icon: TrendingUp },
+    { text: "When to harvest my crops?", Icon: Wheat },
   ];
 
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>🤖 AI Farming Assistant</h1>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <Bot size={36} color="var(--primary-blue)" />
+          <span>AI Farming Assistant</span>
+        </h1>
         <p>Get instant help with farming questions, crop advice, and agricultural best practices</p>
       </div>
 
@@ -161,31 +155,43 @@ export default function AIChatbot() {
         {/* Quick Actions Sidebar */}
         {!isMobile && (
           <div className="card" style={{ height: "fit-content", position: "sticky", top: "40px" }}>
-            <h3 style={{ marginBottom: "16px", fontSize: "18px" }}>💡 Quick Questions</h3>
+            <h3 style={{ marginBottom: "16px", fontSize: "18px", display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Lightbulb size={20} color="#ffb300" />
+              <span>Quick Questions</span>
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {quickActions.map((action, index) => (
-                <button
-                  key={index}
-                  onClick={() => setInputText(action.text)}
-                  className="btn btn-secondary"
-                  style={{
-                    textAlign: "left",
-                    fontSize: "14px",
-                    padding: "12px",
-                    background: "var(--background)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--border-radius-sm)"
-                  }}
-                  disabled={isLoading}
-                >
-                  <span style={{ marginRight: "8px" }}>{action.icon}</span>
-                  {action.text}
-                </button>
-              ))}
+              {quickActions.map((action, index) => {
+                const ActionIcon = action.Icon;
+                return (
+                  <button
+                    key={index}
+                    onClick={() => setInputText(action.text)}
+                    className="btn btn-secondary"
+                    style={{
+                      textAlign: "left",
+                      fontSize: "14px",
+                      padding: "12px",
+                      background: "var(--background)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--border-radius-sm)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px"
+                    }}
+                    disabled={isLoading}
+                  >
+                    <ActionIcon size={16} color="var(--primary-blue)" />
+                    <span>{action.text}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div style={{ marginTop: "24px", padding: "16px", background: "#f0f9ff", borderRadius: "var(--border-radius-sm)" }}>
-              <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#1976d2" }}>💡 Pro Tips</h4>
+              <h4 style={{ fontSize: "14px", marginBottom: "8px", color: "#1976d2", display: "flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={16} color="#1976d2" />
+                <span>Pro Tips</span>
+              </h4>
               <ul style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0, paddingLeft: "16px" }}>
                 <li>Be specific about your crop type</li>
                 <li>Include your region/climate</li>
@@ -255,27 +261,35 @@ export default function AIChatbot() {
           {/* Mobile Quick Actions */}
           {isMobile && (
             <div style={{ marginBottom: "16px" }}>
-              <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "8px", color: "var(--text-primary)" }}>
-                💡 Quick Questions
+              <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "8px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                <Lightbulb size={16} color="#ffb300" />
+                <span>Quick Questions</span>
               </div>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                {quickActions.slice(0, 3).map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setInputText(action.text)}
-                    className="btn btn-secondary"
-                    style={{
-                      fontSize: "12px",
-                      padding: "8px 12px",
-                      background: "var(--background)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "16px"
-                    }}
-                    disabled={isLoading}
-                  >
-                    {action.icon}
-                  </button>
-                ))}
+                {quickActions.slice(0, 3).map((action, index) => {
+                  const ActionIcon = action.Icon;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setInputText(action.text)}
+                      className="btn btn-secondary"
+                      style={{
+                        fontSize: "12px",
+                        padding: "8px 12px",
+                        background: "var(--background)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                      disabled={isLoading}
+                    >
+                      <ActionIcon size={14} />
+                      <span>{action.text}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -315,14 +329,13 @@ export default function AIChatbot() {
                 padding: 0,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: "20px"
+                justifyContent: "center"
               }}
             >
               {isLoading ? (
                 <div className="loading-spinner" style={{ width: "20px", height: "20px", borderWidth: "2px" }}></div>
               ) : (
-                "➤"
+                <Send size={20} color="white" />
               )}
             </button>
           </div>

@@ -1,6 +1,30 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import {
+  LayoutDashboard,
+  Package,
+  MapPin,
+  ShieldCheck,
+  BarChart3,
+  Users,
+  Settings,
+  ShoppingBag,
+  Stethoscope,
+  Sprout,
+  PlusCircle,
+  FlaskConical,
+  Leaf,
+  ShoppingCart,
+  Truck,
+  Store,
+  User,
+  LogOut,
+  Menu,
+  X,
+  ChevronDown,
+  ChevronUp
+} from "lucide-react";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -13,12 +37,17 @@ export default function Navbar() {
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
 
-  // Get current user from localStorage
   const user = localStorage.getItem("user");
   const userData = user ? JSON.parse(user) : null;
   const userName = userData?.name || "";
   const profilePhoto = userData?.profilePhoto;
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+  const [photoError, setPhotoError] = useState(false);
+
+  useEffect(() => {
+    setPhotoError(false);
+  }, [profilePhoto]);
 
   // Handle scroll effect for styling only
   useEffect(() => {
@@ -59,10 +88,9 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("userRole");
-    navigate("/");
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate("/", { replace: true });
   };
 
   const toggleProfileMenu = () => {
@@ -80,67 +108,68 @@ export default function Navbar() {
   // Delivery Partner Navigation
   if (userData?.role === "delivery_partner") {
     navLinks = [
-      { path: "/delivery-partner", label: "🏠 Dashboard", icon: "🏠" },
-      { path: "/delivery-partner/orders", label: "📦 My Orders", icon: "📦" },
-      { path: "/tracking", label: "📍 Tracking", icon: "📍" }
+      { path: "/delivery-partner", label: "Dashboard", Icon: LayoutDashboard },
+      { path: "/delivery-partner/orders", label: "My Orders", Icon: Package },
+      { path: "/tracking", label: "Tracking", Icon: MapPin }
     ];
   } else if (userData?.role === "admin") {
     // Admin Navigation - Enhanced with more admin features
     navLinks = [
-      { path: "/admin/products", label: "🔐 Admin Panel", icon: "🔐" },
-      { path: "/admin/analytics", label: "📊 Analytics", icon: "📊" },
-      { path: "/admin/users", label: "👥 Users", icon: "👥" },
-      { path: "/admin/settings", label: "⚙️ Settings", icon: "⚙️" }
+      { path: "/admin/products", label: "Admin Panel", Icon: ShieldCheck },
+      { path: "/admin/analytics", label: "Analytics", Icon: BarChart3 },
+      { path: "/admin/users", label: "Users", Icon: Users },
+      { path: "/admin/settings", label: "Settings", Icon: Settings }
     ];
   } else {
     // Other Users Navigation
     navLinks = [
-      { path: "/products", label: "🛒 Products", icon: "🛒" },
-      { path: "/crop-doctor", label: "🌿 Crop Doctor", icon: "🌿" }
+      { path: "/products", label: "Products", Icon: ShoppingBag },
+      { path: "/crop-doctor", label: "Crop Doctor", Icon: Stethoscope }
     ];
 
     // Add Crops - only for farmers and buyers (not sellers)
     if (userData?.role === "farmer" || userData?.role === "buyer") {
-      navLinks.unshift({ path: "/crops", label: "🌾 Crops", icon: "🌾" });
+      navLinks.unshift({ path: "/crops", label: "Crops", Icon: Sprout });
     }
 
     // Add dashboard for farmers, sellers, and buyers
     if (userData?.role === "farmer") {
-      navLinks.unshift({ path: "/farmer", label: "🏠 Dashboard", icon: "🏠" });
+      navLinks.unshift({ path: "/farmer", label: "Dashboard", Icon: LayoutDashboard });
     } else if (userData?.role === "seller") {
-      navLinks.unshift({ path: "/seller", label: "🏠 Dashboard", icon: "🏠" });
+      navLinks.unshift({ path: "/seller", label: "Dashboard", Icon: LayoutDashboard });
     } else if (userData) {
       // For users who are logged in but not farmers or sellers (buyers)
-      navLinks.unshift({ path: "/buyer", label: "🏠 Dashboard", icon: "🏠" });
+      navLinks.unshift({ path: "/buyer", label: "Dashboard", Icon: LayoutDashboard });
     }
 
     // Add Crop - only for farmers
     if (userData?.role === "farmer") {
-      navLinks.push({ path: "/manage-crops", label: "🌾 Manage Crops", icon: "🌾" });
-      navLinks.push({ path: "/add-crop", label: "➕ Add Crop", icon: "➕" });
+      navLinks.push({ path: "/manage-crops", label: "Manage Crops", Icon: Sprout });
+      navLinks.push({ path: "/add-crop", label: "Add Crop", Icon: PlusCircle });
     }
 
     // Add Product - only for sellers
     if (userData?.role === "seller") {
-      navLinks.push({ path: "/manage-products", label: "🛒 Manage Products", icon: "🛒" });
-      navLinks.push({ path: "/add-product", label: "🧪 Add Product", icon: "🧪" });
-      navLinks.push({ path: "/plant-analysis", label: "🌿 Plant Analysis", icon: "🌿" });
+      navLinks.push({ path: "/manage-products", label: "Manage Products", Icon: ShoppingBag });
+      navLinks.push({ path: "/add-product", label: "Add Product", Icon: FlaskConical });
+      navLinks.push({ path: "/plant-analysis", label: "Plant Analysis", Icon: Leaf });
     }
 
     // Add Cart - for users who can buy (farmers and buyers, not sellers)
     if (userData?.role === "farmer" || userData?.role === "buyer") {
       navLinks.push({ 
         path: "/cart", 
-        label: `🛒 Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, 
-        icon: "🛒" 
+        label: "Cart",
+        count: cartCount, 
+        Icon: ShoppingCart 
       });
     }
 
     // Add Orders - for all users except delivery partners
     navLinks.push({ 
       path: "/orders", 
-      label: "📦 Orders", 
-      icon: "📦" 
+      label: "Orders", 
+      Icon: Package 
     });
   }
 
@@ -189,7 +218,8 @@ export default function Navbar() {
                 gap: "8px"
               }}
             >
-              🚚 DeliveryHub
+              <Truck size={24} color="var(--primary-blue)" />
+              <span>DeliveryHub</span>
             </Link>
           ) : userData?.role === "seller" ? (
             <Link 
@@ -204,7 +234,8 @@ export default function Navbar() {
                 gap: "8px"
               }}
             >
-              🏪 KisanSetu
+              <Store size={24} color="#2e7d32" />
+              <span>KisanSetu</span>
             </Link>
           ) : userData?.role === "admin" ? (
             <Link 
@@ -219,7 +250,8 @@ export default function Navbar() {
                 gap: "8px"
               }}
             >
-              🔐 KisanSetu Admin
+              <ShieldCheck size={24} color="#d32f2f" />
+              <span>KisanSetu Admin</span>
             </Link>
           ) : (
             <Link 
@@ -237,7 +269,8 @@ export default function Navbar() {
                 gap: "8px"
               }}
             >
-              🌾 KisanSetu
+              <Sprout size={24} color="#2e7d32" />
+              <span>KisanSetu</span>
             </Link>
           )}
 
@@ -246,53 +279,73 @@ export default function Navbar() {
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: userData?.role === "admin" ? "4px" : "6px", // Reduced from 6px/8px to 4px/6px
+              gap: userData?.role === "admin" ? "4px" : "6px",
               flex: 1,
               justifyContent: "center",
-              flexWrap: "wrap" // Allow wrapping for admin links on smaller screens
+              flexWrap: "wrap"
             }}>
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  style={{
-                    textDecoration: "none",
-                    color: userData?.role === "admin" 
-                      ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
-                      : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
-                    padding: userData?.role === "admin" ? "4px 10px" : "6px 12px", // Reduced from 6px 12px / 8px 16px
-                    borderRadius: "var(--border-radius-sm)",
-                    fontSize: userData?.role === "admin" ? "13px" : "14px", // Smaller font for admin
-                    fontWeight: "500",
-                    transition: "all 0.3s ease",
-                    background: userData?.role === "admin" && isActive(link.path) 
-                      ? "rgba(211, 47, 47, 0.1)" 
-                      : isActive(link.path) 
-                      ? "var(--primary-blue)20" 
-                      : "transparent",
-                    border: userData?.role === "admin" && isActive(link.path)
-                      ? "1px solid #d32f2f"
-                      : isActive(link.path) 
-                      ? "1px solid var(--primary-blue)" 
-                      : "1px solid transparent",
-                    whiteSpace: "nowrap"
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive(link.path)) {
-                      e.target.style.background = userData?.role === "admin" 
-                        ? "rgba(211, 47, 47, 0.05)" 
-                        : "rgba(0,0,0,0.05)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive(link.path)) {
-                      e.target.style.background = "transparent";
-                    }
-                  }}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const IconComponent = link.Icon;
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    style={{
+                      textDecoration: "none",
+                      color: userData?.role === "admin" 
+                        ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
+                        : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
+                      padding: userData?.role === "admin" ? "4px 10px" : "6px 12px",
+                      borderRadius: "var(--border-radius-sm)",
+                      fontSize: userData?.role === "admin" ? "13px" : "14px",
+                      fontWeight: "500",
+                      transition: "all 0.3s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: userData?.role === "admin" && isActive(link.path) 
+                        ? "rgba(211, 47, 47, 0.1)" 
+                        : isActive(link.path) 
+                        ? "var(--primary-blue)20" 
+                        : "transparent",
+                      border: userData?.role === "admin" && isActive(link.path)
+                        ? "1px solid #d32f2f"
+                        : isActive(link.path) 
+                        ? "1px solid var(--primary-blue)" 
+                        : "1px solid transparent",
+                      whiteSpace: "nowrap"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive(link.path)) {
+                        e.currentTarget.style.background = userData?.role === "admin" 
+                          ? "rgba(211, 47, 47, 0.05)" 
+                          : "rgba(0,0,0,0.05)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive(link.path)) {
+                        e.currentTarget.style.background = "transparent";
+                      }
+                    }}
+                  >
+                    {IconComponent && <IconComponent size={16} />}
+                    <span>{link.label}</span>
+                    {link.count !== undefined && link.count > 0 && (
+                      <span style={{
+                        background: "var(--primary-blue, #1976d2)",
+                        color: "white",
+                        borderRadius: "10px",
+                        padding: "1px 6px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        marginLeft: "2px"
+                      }}>
+                        {link.count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
 
@@ -307,16 +360,19 @@ export default function Navbar() {
                 cursor: "pointer",
                 padding: "8px",
                 borderRadius: "var(--border-radius-sm)",
-                transition: "background 0.3s"
+                transition: "background 0.3s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
               onMouseEnter={(e) => {
-                e.target.style.background = "rgba(0,0,0,0.05)";
+                e.currentTarget.style.background = "rgba(0,0,0,0.05)";
               }}
               onMouseLeave={(e) => {
-                e.target.style.background = "transparent";
+                e.currentTarget.style.background = "transparent";
               }}
             >
-              ☰
+              {showMobileMenu ? <X size={24} /> : <Menu size={24} />}
             </button>
           )}
 
@@ -342,41 +398,42 @@ export default function Navbar() {
                     color: "var(--text-primary)"
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.background = "rgba(0,0,0,0.05)";
+                    e.currentTarget.style.background = "rgba(0,0,0,0.05)";
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = "transparent";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  {profilePhoto ? (
+                  {profilePhoto && !photoError ? (
                     <img
-                      src={`${API_BASE_URL}${profilePhoto}`}
+                      src={profilePhoto.startsWith("http") ? profilePhoto : `${API_BASE_URL}${profilePhoto}`}
                       alt="Profile"
                       style={{
                         width: "28px",
                         height: "28px",
                         borderRadius: "50%",
                         objectFit: "cover",
-                        border: "2px solid rgba(255,255,255,0.3)"
+                        border: "2px solid var(--primary-green)"
                       }}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        if (!e.target.nextSibling || e.target.nextSibling.textContent !== "👤") {
-                          const span = document.createElement("span");
-                          span.textContent = "👤";
-                          e.target.parentElement.insertBefore(span, e.target);
-                        }
-                      }}
+                      onError={() => setPhotoError(true)}
                     />
                   ) : (
-                    <span style={{ fontSize: "18px" }}>👤</span>
+                    <div style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "50%",
+                      background: "#e8f5e9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}>
+                      <User size={16} color="var(--primary-green)" />
+                    </div>
                   )}
                   <span style={{ display: scrolled ? "none" : "block" }}>
                     {userName || "Profile"}
                   </span>
-                  <span style={{ fontSize: "12px", marginLeft: "4px" }}>
-                    {showProfileMenu ? "▲" : "▼"}
-                  </span>
+                  {showProfileMenu ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
                 {/* Profile Dropdown Menu */}
@@ -410,13 +467,13 @@ export default function Navbar() {
                         borderBottom: "1px solid var(--border-color)"
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.background = "rgba(0,0,0,0.05)";
+                        e.currentTarget.style.background = "rgba(0,0,0,0.05)";
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.background = "transparent";
+                        e.currentTarget.style.background = "transparent";
                       }}
                     >
-                      <span>👤</span>
+                      <User size={16} />
                       <span>Profile</span>
                     </Link>
                     <button
@@ -436,13 +493,13 @@ export default function Navbar() {
                         transition: "background 0.3s"
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.background = "rgba(220,53,69,0.1)";
+                        e.currentTarget.style.background = "rgba(220,53,69,0.1)";
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.background = "transparent";
+                        e.currentTarget.style.background = "transparent";
                       }}
                     >
-                      <span>🚪</span>
+                      <LogOut size={16} />
                       <span>Logout</span>
                     </button>
                   </div>
@@ -485,7 +542,6 @@ export default function Navbar() {
                 style={{
                   background: "none",
                   border: "none",
-                  fontSize: "20px",
                   cursor: "pointer",
                   padding: "8px",
                   borderRadius: "4px",
@@ -497,16 +553,8 @@ export default function Navbar() {
                   minWidth: "40px",
                   minHeight: "40px"
                 }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "rgba(0,0,0,0.1)";
-                  e.target.style.color = "var(--text-primary)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent";
-                  e.target.style.color = "var(--text-secondary)";
-                }}
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
             
@@ -515,38 +563,57 @@ export default function Navbar() {
               padding: "16px 12px",
               borderBottom: "1px solid var(--border-color)"
             }}>
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setShowMobileMenu(false)}
-                  style={{
-                    display: "block",
-                    textDecoration: "none",
-                    color: userData?.role === "admin" 
-                      ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
-                      : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
-                    padding: "12px 16px",
-                    borderRadius: "var(--border-radius-sm)",
-                    fontSize: "16px",
-                    fontWeight: "500",
-                    transition: "all 0.3s ease",
-                    background: userData?.role === "admin" && isActive(link.path)
-                      ? "rgba(211, 47, 47, 0.1)"
-                      : isActive(link.path)
-                      ? "var(--primary-blue)20"
-                      : "transparent",
-                    border: userData?.role === "admin" && isActive(link.path)
-                      ? "1px solid #d32f2f"
-                      : isActive(link.path)
-                      ? "1px solid var(--primary-blue)"
-                      : "1px solid transparent",
-                    marginBottom: "8px"
-                  }}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const IconComponent = link.Icon;
+                return (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setShowMobileMenu(false)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      textDecoration: "none",
+                      color: userData?.role === "admin" 
+                        ? (isActive(link.path) ? "#d32f2f" : "var(--text-primary)")
+                        : (isActive(link.path) ? "var(--primary-blue)" : "var(--text-primary)"),
+                      padding: "12px 16px",
+                      borderRadius: "var(--border-radius-sm)",
+                      fontSize: "16px",
+                      fontWeight: "500",
+                      transition: "all 0.3s ease",
+                      background: userData?.role === "admin" && isActive(link.path)
+                        ? "rgba(211, 47, 47, 0.1)"
+                        : isActive(link.path)
+                        ? "var(--primary-blue)20"
+                        : "transparent",
+                      border: userData?.role === "admin" && isActive(link.path)
+                        ? "1px solid #d32f2f"
+                        : isActive(link.path)
+                        ? "1px solid var(--primary-blue)"
+                        : "1px solid transparent",
+                      marginBottom: "8px"
+                    }}
+                  >
+                    {IconComponent && <IconComponent size={20} />}
+                    <span>{link.label}</span>
+                    {link.count !== undefined && link.count > 0 && (
+                      <span style={{
+                        background: "var(--primary-blue, #1976d2)",
+                        color: "white",
+                        borderRadius: "10px",
+                        padding: "2px 8px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        marginLeft: "auto"
+                      }}>
+                        {link.count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Mobile Profile Section */}
@@ -562,29 +629,31 @@ export default function Navbar() {
                 borderRadius: "var(--border-radius-sm)",
                 marginBottom: "12px"
               }}>
-                {profilePhoto ? (
+                {profilePhoto && !photoError ? (
                   <img
-                    src={`${API_BASE_URL}${profilePhoto}`}
+                    src={profilePhoto.startsWith("http") ? profilePhoto : `${API_BASE_URL}${profilePhoto}`}
                     alt="Profile"
                     style={{
                       width: "40px",
                       height: "40px",
                       borderRadius: "50%",
                       objectFit: "cover",
-                      border: "2px solid rgba(255,255,255,0.3)"
+                      border: "2px solid var(--primary-green)"
                     }}
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                      if (!e.target.nextSibling || e.target.nextSibling.textContent !== "👤") {
-                        const span = document.createElement("span");
-                        span.textContent = "👤";
-                        span.style.fontSize = "24px";
-                        e.target.parentElement.insertBefore(span, e.target);
-                      }
-                    }}
+                    onError={() => setPhotoError(true)}
                   />
                 ) : (
-                  <span style={{ fontSize: "24px" }}>👤</span>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "#e8f5e9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <User size={24} color="var(--primary-green)" />
+                  </div>
                 )}
                 <div>
                   <div style={{
@@ -622,7 +691,7 @@ export default function Navbar() {
                   marginBottom: "8px"
                 }}
               >
-                <span>👤</span>
+                <User size={18} />
                 <span>Profile</span>
               </Link>
 
@@ -644,7 +713,7 @@ export default function Navbar() {
                   borderRadius: "var(--border-radius-sm)"
                 }}
               >
-                <span>🚪</span>
+                <LogOut size={18} />
                 <span>Logout</span>
               </button>
             </div>

@@ -1,6 +1,60 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import API, { apiCall } from "../api/api";
+import {
+  Sprout,
+  PlusCircle,
+  MapPin,
+  Pencil,
+  PauseCircle,
+  CheckCircle2,
+  Trash2,
+  AlertTriangle,
+  X,
+  Camera,
+  Star
+} from "lucide-react";
+
+function CropCardImage({ crop, isMobile, STATIC_BASE_URL }) {
+  const [hasError, setHasError] = useState(false);
+  const rawImage = crop.images && crop.images.length > 0 ? crop.images[crop.primaryImageIndex || 0] : null;
+
+  if (!rawImage || hasError) {
+    return (
+      <div style={{
+        width: "100%",
+        height: isMobile ? "160px" : "200px",
+        background: "linear-gradient(135deg, #2e7d32, #4caf50)",
+        borderRadius: "var(--border-radius-sm)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        marginBottom: isMobile ? "12px" : "16px"
+      }}>
+        <Sprout size={isMobile ? 36 : 48} color="white" />
+      </div>
+    );
+  }
+
+  const imageUrl = rawImage.startsWith("http") ? rawImage : `${STATIC_BASE_URL}${rawImage}`;
+
+  return (
+    <img
+      src={imageUrl}
+      alt={crop.name || "Crop"}
+      style={{
+        width: "100%",
+        height: isMobile ? "160px" : "200px",
+        objectFit: "cover",
+        borderRadius: "var(--border-radius-sm)",
+        marginBottom: isMobile ? "12px" : "16px",
+        display: "block"
+      }}
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export default function ManageCrops() {
   const [crops, setCrops] = useState([]);
@@ -44,14 +98,10 @@ export default function ManageCrops() {
   }, []);
 
   useEffect(() => {
-    console.log('ManageCrops component mounted');
-    
-    // Get current user from localStorage
     const user = localStorage.getItem("user");
     const token = localStorage.getItem("token");
     
     if (!user || !token) {
-      console.log('No user or token found');
       setError("Please log in to manage your crops");
       setLoading(false);
       return;
@@ -59,7 +109,6 @@ export default function ManageCrops() {
     
     try {
       setCurrentUser(JSON.parse(user));
-      console.log('User found:', JSON.parse(user).name);
     } catch (e) {
       console.error("Error parsing user:", e);
       setError("Invalid user data");
@@ -72,9 +121,7 @@ export default function ManageCrops() {
 
   const fetchCrops = async () => {
     try {
-      console.log('Fetching crops...');
       const response = await API.get("/crops/my-crops");
-      console.log('Crops response:', response.data);
       setCrops(response.data || []);
       setLoading(false);
     } catch (err) {
@@ -85,23 +132,18 @@ export default function ManageCrops() {
   };
 
   const handleEditCrop = (crop) => {
-    console.log("🔍 Opening edit modal for crop:", crop);
-    console.log("🔍 Crop primaryImageIndex:", crop.primaryImageIndex);
     const editingCropState = {
       ...crop,
       quantity: crop.quantity.toString(),
       price: crop.price.toString(),
       primaryImageIndex: crop.primaryImageIndex || 0
     };
-    console.log("🔍 Setting editingCrop state:", editingCropState);
     setEditingCrop(editingCropState);
     setShowEditModal(true);
   };
 
   const handleUpdateCrop = async (e) => {
     e.preventDefault();
-    
-    // Clear previous errors
     setError("");
     setFieldErrors({});
     
@@ -109,10 +151,7 @@ export default function ManageCrops() {
       let response;
       
       if (editingCrop.newImageFile) {
-        // If there's a new image, use FormData
         const formData = new FormData();
-        
-        // Add all crop fields
         formData.append('name', editingCrop.name);
         formData.append('quantity', parseFloat(editingCrop.quantity));
         formData.append('price', parseFloat(editingCrop.price));
@@ -123,21 +162,14 @@ export default function ManageCrops() {
         formData.append('availableUntil', editingCrop.availableUntil || '');
         formData.append('contactInfo', JSON.stringify(editingCrop.contactInfo || {}));
         formData.append('location', JSON.stringify(editingCrop.location || {}));
-        
-        // Add images array and primary image index
         formData.append('images', JSON.stringify(editingCrop.images || []));
         formData.append('primaryImageIndex', editingCrop.primaryImageIndex || 0);
-        
-        // Add the new image
         formData.append('image', editingCrop.newImageFile);
         
         response = await API.put(`/crops/${editingCrop._id}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        // If no new image, use regular JSON
         const updateData = {
           name: editingCrop.name,
           quantity: parseFloat(editingCrop.quantity),
@@ -156,15 +188,13 @@ export default function ManageCrops() {
         response = await API.put(`/crops/${editingCrop._id}`, updateData);
       }
       
-      // Success
       setShowEditModal(false);
       setEditingCrop(null);
-      fetchCrops(); // Refresh the list
+      fetchCrops();
     } catch (error) {
       console.error("Update error:", error);
       const errorMessage = error.response?.data?.error || "Failed to update crop";
       
-      // Handle field-specific errors from backend
       if (errorMessage.includes('name')) {
         setFieldErrors({ name: errorMessage });
       } else if (errorMessage.includes('price')) {
@@ -184,7 +214,7 @@ export default function ManageCrops() {
     
     try {
       await API.delete(`/crops/${cropId}`);
-      fetchCrops(); // Refresh the list
+      fetchCrops();
     } catch (error) {
       console.error("Delete error:", error);
       setError("Failed to delete crop");
@@ -201,7 +231,6 @@ export default function ManageCrops() {
       endpoint = `/crops/${cropId}/status`;
       payload = { status: value };
     } else {
-      // Legacy support for old format
       endpoint = `/crops/${cropId}/status`;
       payload = { isApproved: value };
     }
@@ -209,7 +238,7 @@ export default function ManageCrops() {
     try {
       const response = await API.put(endpoint, payload);
       if (response.data) {
-        fetchCrops(); // Refresh the list
+        fetchCrops();
       }
     } catch (error) {
       console.error("Status change error:", error);
@@ -227,10 +256,10 @@ export default function ManageCrops() {
   });
 
   const getStatusColor = (quantity, isApproved, status) => {
-    if (quantity === 0) return "#f44336"; // Red for out of stock
-    if (status === "Reserved") return "#ff9800"; // Orange for reserved
-    if (isApproved) return "#4caf50"; // Green for approved
-    return "#2196f3"; // Blue for available but not approved
+    if (quantity === 0) return "#f44336";
+    if (status === "Reserved") return "#ff9800";
+    if (isApproved) return "#4caf50";
+    return "#2196f3";
   };
 
   const getStatusText = (quantity, isApproved, status) => {
@@ -238,8 +267,6 @@ export default function ManageCrops() {
     if (status === "Reserved") return "Reserved";
     return isApproved ? "Approved" : "Available";
   };
-
-  console.log('ManageCrops render - loading:', loading, 'error:', error, 'crops count:', crops.length);
 
   if (loading) {
     return (
@@ -250,7 +277,6 @@ export default function ManageCrops() {
         </p>
         <button
           onClick={() => {
-            console.log('Manual stop');
             setLoading(false);
             setError("Manually stopped");
           }}
@@ -286,7 +312,9 @@ export default function ManageCrops() {
         <Link 
           to="/add-crop"
           style={{
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
             padding: "12px 24px",
             background: "var(--primary-blue)",
             color: "white",
@@ -294,7 +322,8 @@ export default function ManageCrops() {
             borderRadius: "4px"
           }}
         >
-          Add New Crop
+          <PlusCircle size={18} />
+          <span>Add New Crop</span>
         </Link>
       </div>
     );
@@ -302,16 +331,20 @@ export default function ManageCrops() {
 
   return (
     <div className="container" style={{ 
-      padding: isMobile ? "20px 16px" : "40px 20px",
+      padding: isMobile ? "32px 16px 40px" : "48px 20px 60px",
       maxWidth: isMobile ? "100%" : "1200px",
       margin: "0 auto"
     }}>
       <div style={{ marginBottom: isMobile ? "20px" : "30px" }}>
         <h1 style={{ 
           fontSize: isMobile ? "24px" : "32px",
-          marginBottom: isMobile ? "8px" : "12px"
+          marginBottom: isMobile ? "8px" : "12px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "12px"
         }}>
-          🌾 Manage Your Crops
+          <Sprout size={32} color="var(--primary-blue)" />
+          <span>Manage Your Crops</span>
         </h1>
         <p style={{ 
           color: "var(--text-secondary)",
@@ -325,19 +358,21 @@ export default function ManageCrops() {
         <Link 
           to="/add-crop"
           style={{
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
             padding: isMobile ? "12px 20px" : "12px 24px",
             background: "var(--primary-blue)",
-            color: "darkblue",
+            color: "white",
             textDecoration: "none",
             borderRadius: "4px",
-            marginRight: "10px",
             fontSize: isMobile ? "14px" : "16px",
-            width: isMobile ? "100%" : "auto",
-            textAlign: "center"
+            width: isMobile ? "100%" : "auto"
           }}
         >
-          ➕ Add New Crop
+          <PlusCircle size={18} />
+          <span>Add New Crop</span>
         </Link>
       </div>
 
@@ -416,44 +451,9 @@ export default function ManageCrops() {
               overflow: "hidden"
             }}>
               {/* Crop Image */}
-              {crop.images && crop.images.length > 0 && (
-                <img
-                  src={
-                    crop.images[crop.primaryImageIndex || 0].startsWith("http") 
-                      ? crop.images[crop.primaryImageIndex || 0] 
-                      : `${STATIC_BASE_URL}${crop.images[crop.primaryImageIndex || 0]}`
-                  }
-                  alt={crop.name}
-                  style={{
-                    width: "100%",
-                    height: isMobile ? "160px" : "200px",
-                    objectFit: "cover",
-                    borderRadius: "var(--border-radius-sm)",
-                    marginBottom: isMobile ? "12px" : "16px"
-                  }}
-                  onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/350x200/4caf50/ffffff?text=🌾+Crop+Image";
-                  }}
-                />
-              )}
-              {!crop.images || crop.images.length === 0 && (
-                <div style={{
-                  width: "100%",
-                  height: isMobile ? "160px" : "200px",
-                  background: "linear-gradient(135deg, #4caf50, #81c784)",
-                  borderRadius: "var(--border-radius-sm)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontSize: isMobile ? "36px" : "48px",
-                  marginBottom: isMobile ? "12px" : "16px"
-                }}>
-                  🌾
-                </div>
-              )}
+              <CropCardImage crop={crop} isMobile={isMobile} STATIC_BASE_URL={STATIC_BASE_URL} />
 
-              <div style={{ padding: isMobile ? "0" : "0" }}>
+              <div>
                 {/* Header */}
                 <div style={{ 
                   display: "flex", 
@@ -524,9 +524,13 @@ export default function ManageCrops() {
                     <p style={{ 
                       margin: "0", 
                       fontSize: isMobile ? "11px" : "12px", 
-                      color: "var(--text-secondary)"
+                      color: "var(--text-secondary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
                     }}>
-                      📍 {crop.location.city || "Location"}, {crop.location.state || "State"}
+                      <MapPin size={14} />
+                      <span>{crop.location.city || "Location"}, {crop.location.state || "State"}</span>
                     </p>
                   )}
                 </div>
@@ -545,10 +549,14 @@ export default function ManageCrops() {
                       fontSize: isMobile ? "12px" : "14px", 
                       padding: isMobile ? "10px 16px" : "8px 12px",
                       width: isMobile && isPortrait ? "100%" : "auto",
-                      textAlign: "center"
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px"
                     }}
                   >
-                    ✏️ Edit
+                    <Pencil size={14} />
+                    <span>Edit</span>
                   </button>
                   
                   {/* Reserve/Available buttons */}
@@ -560,10 +568,14 @@ export default function ManageCrops() {
                         fontSize: isMobile ? "12px" : "14px", 
                         padding: isMobile ? "10px 16px" : "8px 12px",
                         width: isMobile && isPortrait ? "100%" : "auto",
-                        textAlign: "center"
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "4px"
                       }}
                     >
-                      ⏸️ Reserve
+                      <PauseCircle size={14} />
+                      <span>Reserve</span>
                     </button>
                   )}
                   
@@ -575,10 +587,14 @@ export default function ManageCrops() {
                         fontSize: isMobile ? "12px" : "14px", 
                         padding: isMobile ? "10px 16px" : "8px 12px",
                         width: isMobile && isPortrait ? "100%" : "auto",
-                        textAlign: "center"
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "4px"
                       }}
                     >
-                      ✅ Available
+                      <CheckCircle2 size={14} />
+                      <span>Available</span>
                     </button>
                   )}
                   
@@ -593,10 +609,14 @@ export default function ManageCrops() {
                             fontSize: isMobile ? "12px" : "14px", 
                             padding: isMobile ? "10px 16px" : "8px 12px",
                             width: isMobile && isPortrait ? "100%" : "auto",
-                            textAlign: "center"
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "4px"
                           }}
                         >
-                          ✅ Approve
+                          <CheckCircle2 size={14} />
+                          <span>Approve</span>
                         </button>
                       )}
                     </>
@@ -609,10 +629,14 @@ export default function ManageCrops() {
                       fontSize: isMobile ? "12px" : "14px", 
                       padding: isMobile ? "10px 16px" : "8px 12px",
                       width: isMobile && isPortrait ? "100%" : "auto",
-                      textAlign: "center"
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px"
                     }}
                   >
-                    🗑️ Delete
+                    <Trash2 size={14} />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -678,8 +702,8 @@ export default function ManageCrops() {
                     alignItems: "center",
                     gap: "4px"
                   }}>
-                    <span style={{ fontSize: "14px" }}>⚠️</span>
-                    {fieldErrors.name}
+                    <AlertTriangle size={14} color="var(--error)" />
+                    <span>{fieldErrors.name}</span>
                   </div>
                 )}
               </div>
@@ -696,7 +720,6 @@ export default function ManageCrops() {
                     value={editingCrop.quantity}
                     onChange={(e) => {
                       setEditingCrop({ ...editingCrop, quantity: e.target.value });
-                      // Clear field error when user starts typing
                       if (fieldErrors.quantity) {
                         setFieldErrors({ ...fieldErrors, quantity: "" });
                       }
@@ -717,8 +740,8 @@ export default function ManageCrops() {
                       alignItems: "center",
                       gap: "4px"
                     }}>
-                      <span style={{ fontSize: "14px" }}>⚠️</span>
-                      {fieldErrors.quantity}
+                      <AlertTriangle size={14} color="var(--error)" />
+                      <span>{fieldErrors.quantity}</span>
                     </div>
                   )}
                 </div>
@@ -733,7 +756,6 @@ export default function ManageCrops() {
                     value={editingCrop.price}
                     onChange={(e) => {
                       setEditingCrop({ ...editingCrop, price: e.target.value });
-                      // Clear field error when user starts typing
                       if (fieldErrors.price) {
                         setFieldErrors({ ...fieldErrors, price: "" });
                       }
@@ -754,8 +776,8 @@ export default function ManageCrops() {
                       alignItems: "center",
                       gap: "4px"
                     }}>
-                      <span style={{ fontSize: "14px" }}>⚠️</span>
-                      {fieldErrors.price}
+                      <AlertTriangle size={14} color="var(--error)" />
+                      <span>{fieldErrors.price}</span>
                     </div>
                   )}
                 </div>
@@ -859,10 +881,10 @@ export default function ManageCrops() {
                                 borderRadius: "var(--border-radius-sm)",
                                 border: isPrimary ? "2px solid var(--primary-green)" : "2px solid var(--border)",
                                 opacity: isPrimary ? 1 : 0.8,
-                                transition: "none" // Remove transition to prevent blinking
+                                transition: "none"
                               }}
                               onError={(e) => {
-                                e.target.src = "https://via.placeholder.com/80x80/4caf50/ffffff?text=🌾";
+                                e.target.style.display = "none";
                               }}
                             />
                             <div style={{ 
@@ -895,18 +917,11 @@ export default function ManageCrops() {
                                   cursor: "pointer",
                                   display: "flex",
                                   alignItems: "center",
-                                  justifyContent: "center",
-                                  transition: "none" // Remove transition to prevent blinking
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.target.style.background = "rgba(244, 67, 54, 1)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.background = "rgba(244, 67, 54, 0.9)";
+                                  justifyContent: "center"
                                 }}
                                 title="Delete image"
                               >
-                                ×
+                                <X size={12} />
                               </button>
                               {!isPrimary && (
                                 <button
@@ -928,18 +943,11 @@ export default function ManageCrops() {
                                     cursor: "pointer",
                                     display: "flex",
                                     alignItems: "center",
-                                    justifyContent: "center",
-                                    transition: "none" // Remove transition to prevent blinking
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = "rgba(76, 175, 80, 1)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = "rgba(76, 175, 80, 0.9)";
+                                    justifyContent: "center"
                                   }}
                                   title="Set as primary image"
                                 >
-                                  ★
+                                  <Star size={12} fill="white" />
                                 </button>
                               )}
                             </div>
@@ -974,18 +982,15 @@ export default function ManageCrops() {
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
-                        // Validate file size (5MB limit)
                         if (file.size > 5 * 1024 * 1024) {
                           setFieldErrors({ image: "Image size must be less than 5MB" });
                           return;
                         }
                         
-                        // Clear image field error when user selects a valid file
                         if (fieldErrors.image) {
                           setFieldErrors({ ...fieldErrors, image: "" });
                         }
                         
-                        // Create preview
                         const reader = new FileReader();
                         reader.onloadend = () => {
                           setEditingCrop({
@@ -1005,7 +1010,7 @@ export default function ManageCrops() {
                     <div>
                       <img
                         src={editingCrop.newImagePreview}
-                        alt="New crop image"
+                        alt="New crop preview"
                         style={{
                           width: "120px",
                           height: "120px",
@@ -1025,7 +1030,6 @@ export default function ManageCrops() {
                               newImageFile: null
                             });
                             document.getElementById('crop-image-upload').value = '';
-                            // Clear image field error when user removes image
                             if (fieldErrors.image) {
                               setFieldErrors({ ...fieldErrors, image: "" });
                             }
@@ -1046,8 +1050,8 @@ export default function ManageCrops() {
                     </div>
                   ) : (
                     <div>
-                      <div style={{ fontSize: "48px", marginBottom: "12px", color: "var(--text-secondary)" }}>
-                        📷
+                      <div style={{ marginBottom: "12px", display: "flex", justifyContent: "center" }}>
+                        <Camera size={48} color="#ccc" />
                       </div>
                       <p style={{ margin: "0 0 12px 0", color: "var(--text-secondary)" }}>
                         Click to add a new crop image
@@ -1066,10 +1070,11 @@ export default function ManageCrops() {
                           marginTop: "4px",
                           display: "flex",
                           alignItems: "center",
+                          justifyContent: "center",
                           gap: "4px"
                         }}>
-                          <span style={{ fontSize: "14px" }}>⚠️</span>
-                          {fieldErrors.image}
+                          <AlertTriangle size={14} color="var(--error)" />
+                          <span>{fieldErrors.image}</span>
                         </div>
                       )}
                     </div>
@@ -1089,7 +1094,7 @@ export default function ManageCrops() {
                   alignItems: "center",
                   gap: "8px"
                 }}>
-                  <span style={{ fontSize: "16px", color: "var(--error)" }}>⚠️</span>
+                  <AlertTriangle size={16} color="var(--error)" />
                   <span style={{ color: "var(--error)", fontSize: "14px" }}>{error}</span>
                 </div>
               )}

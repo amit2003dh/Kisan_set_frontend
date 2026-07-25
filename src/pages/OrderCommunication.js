@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
+import {
+  MessageSquare,
+  AlertCircle,
+  RefreshCw,
+  ArrowLeft,
+  Send,
+  CheckCircle2,
+  Truck,
+  PartyPopper,
+  XCircle,
+  Package
+} from "lucide-react";
 
 export default function OrderCommunication() {
   const { orderId } = useParams();
@@ -38,7 +50,7 @@ export default function OrderCommunication() {
         setError(err);
       } else {
         setOrder(data);
-        console.log("Order details fetched:", data); // Debug log
+        setError(""); // Clear any previous error on successful order fetch
       }
     } catch (error) {
       console.error("Error fetching order details:", error);
@@ -50,19 +62,18 @@ export default function OrderCommunication() {
 
   const fetchMessages = async () => {
     try {
-      const { data, error: err } = await apiCall(() => 
+      const { data } = await apiCall(() => 
         API.get(`/orders/${orderId}/messages`)
       );
       
-      if (err) {
-        setError(err);
+      if (data && Array.isArray(data)) {
+        setMessages(data);
       } else {
-        // Backend returns messages array directly, not wrapped in data.messages
-        setMessages(data || []);
+        setMessages([]);
       }
     } catch (error) {
-      console.error("Error fetching messages:", error);
-      setError("Failed to fetch messages");
+      console.warn("Could not load order messages:", error);
+      setMessages([]);
     }
   };
 
@@ -72,28 +83,21 @@ export default function OrderCommunication() {
     try {
       const messageData = {
         message: newMessage.trim(),
-        senderType: currentUser.role // 'buyer' or 'seller'
+        senderType: currentUser.role
       };
-      
-      console.log("📝 Sending message with data:", messageData);
-      console.log("🔍 Current user:", currentUser);
-      console.log("🔍 Order ID:", orderId);
 
       const { data, error: err } = await apiCall(() =>
         API.post(`/orders/${orderId}/message`, messageData)
       );
 
       if (err) {
-        console.error("❌ API Error:", err);
         setError(err);
       } else {
-        console.log("✅ Message sent successfully:", data);
         setNewMessage("");
-        // Refresh messages to get the new one
         fetchMessages();
       }
     } catch (error) {
-      console.error("❌ Error sending message:", error);
+      console.error("Error sending message:", error);
       setError("Failed to send message");
     }
   };
@@ -105,7 +109,7 @@ export default function OrderCommunication() {
       case "out for delivery":
         return "#2196f3";
       case "delivered":
-        return "#4caf50";
+        return "#2e7d32";
       case "cancelled":
         return "#f44336";
       default:
@@ -113,18 +117,18 @@ export default function OrderCommunication() {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const renderStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
       case "confirmed":
-        return "📋";
+        return <CheckCircle2 size={14} />;
       case "out for delivery":
-        return "🚚";
+        return <Truck size={14} />;
       case "delivered":
-        return "✅";
+        return <PartyPopper size={14} />;
       case "cancelled":
-        return "❌";
+        return <XCircle size={14} />;
       default:
-        return "📋";
+        return <Package size={14} />;
     }
   };
 
@@ -132,7 +136,10 @@ export default function OrderCommunication() {
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="page-header">
-          <h1>📋 Order Communication</h1>
+          <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+            <MessageSquare size={32} color="var(--primary-blue)" />
+            <span>Order Communication</span>
+          </h1>
           <p>Loading order details...</p>
         </div>
         <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
@@ -145,23 +152,43 @@ export default function OrderCommunication() {
     );
   }
 
-  if (error) {
+  if (error || !order) {
+    const errorMsg = typeof error === 'object' ? error.message || error.error || "Order not found" : error || "Order not found";
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="page-header">
-          <h1>📋 Order Communication</h1>
-          <p>Error loading order</p>
+          <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+            <MessageSquare size={32} color="var(--primary-blue)" />
+            <span>Order Communication</span>
+          </h1>
+          <p>View & manage order communications</p>
         </div>
         <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontSize: "48px", marginBottom: "16px", color: "var(--error)" }}>❌</div>
-          <p style={{ color: "var(--error)" }}>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn btn-primary"
-            style={{ marginTop: "16px" }}
-          >
-            🔄 Retry
-          </button>
+          <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+            <AlertCircle size={64} color="#ed6c02" />
+          </div>
+          <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>Order Details Unavailable</h3>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "24px", maxWidth: "480px", margin: "0 auto 24px" }}>
+            {errorMsg.includes("Network") ? "Could not reach the order service. Please check server or try again." : "The requested order ID does not exist or has been removed."}
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button
+              onClick={() => navigate("/orders")}
+              className="btn btn-secondary"
+              style={{ display: "inline-flex", alignItems: 'center', gap: "8px" }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back to Orders</span>
+            </button>
+            <button
+              onClick={() => { setError(""); setLoading(true); fetchOrderDetails(); fetchMessages(); }}
+              className="btn btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+            >
+              <RefreshCw size={16} />
+              <span>Retry</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -170,21 +197,23 @@ export default function OrderCommunication() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>📋 Order Communication</h1>
-        <p>Communicate with {currentUser?.role === "buyer" ? "seller" : "buyer"} about this order</p>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <MessageSquare size={32} color="var(--primary-blue)" />
+          <span>Order Communication</span>
+        </h1>
+        <p style={{ marginTop: "8px" }}>Communicate with {currentUser?.role === "buyer" ? "seller" : "buyer"} about this order</p>
         <button
           onClick={() => navigate("/orders")}
           className="btn btn-secondary"
-          style={{ marginLeft: "16px" }}
+          style={{ marginTop: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
         >
-          ← Back to Orders
+          <ArrowLeft size={16} />
+          <span>Back to Orders</span>
         </button>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
-
       {order && (
-        <div className="card" style={{ marginBottom: "32px" }}>
+        <div className="card" style={{ marginBottom: "32px", marginTop: "24px" }}>
           <h2 style={{ marginBottom: "24px", fontSize: "20px", color: "var(--text-primary)" }}>
             Order Details
           </h2>
@@ -199,15 +228,19 @@ export default function OrderCommunication() {
               <h4 style={{ marginBottom: "8px", color: "var(--text-secondary)" }}>Order Information</h4>
               <div style={{ padding: "12px", background: "var(--background)", borderRadius: "8px" }}>
                 <p><strong>Order ID:</strong> {order._id}</p>
-                <p><strong>Status:</strong> 
+                <p style={{ display: "flex", alignItems: "center", gap: "6px", margin: "8px 0" }}>
+                  <strong>Status:</strong> 
                   <span style={{
                     padding: "4px 8px",
                     borderRadius: "12px",
                     fontSize: "12px",
                     background: getStatusColor(order.status),
-                    color: "white"
+                    color: "white",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px"
                   }}>
-                    {getStatusIcon(order.status)} {order.status}
+                    {renderStatusIcon(order.status)} <span>{order.status}</span>
                   </span>
                 </p>
                 <p><strong>Payment Method:</strong> {order.paymentMethod || "Not specified"}</p>
@@ -236,8 +269,9 @@ export default function OrderCommunication() {
             </div>
           </div>
 
-          <h3 style={{ marginBottom: "16px", fontSize: "18px", color: "var(--text-primary)" }}>
-            💬 Messages
+          <h3 style={{ marginBottom: "16px", fontSize: "18px", color: "var(--text-primary)", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <MessageSquare size={20} color="var(--primary-blue)" />
+            <span>Messages</span>
           </h3>
           
           <div style={{ 
@@ -250,17 +284,19 @@ export default function OrderCommunication() {
           }}>
             {messages.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-secondary)" }}>
-                <div style={{ fontSize: "48px", marginBottom: "16px" }}>💬</div>
+                <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+                  <MessageSquare size={48} color="#ccc" />
+                </div>
                 <p>No messages yet. Start the conversation!</p>
               </div>
             ) : (
               messages.map((message, index) => (
-                <div key={message._id} style={{
+                <div key={message._id || index} style={{
                   marginBottom: "16px",
                   padding: "12px",
                   borderRadius: "8px",
                   background: message.senderType === "system" ? "#fff3e0" : 
-                    message.senderType === currentUser.role ? "#e3f2fd" : "#e8f5e9"
+                    message.senderType === currentUser?.role ? "#e3f2fd" : "#e8f5e9"
                 }}>
                   <div style={{ 
                     display: "flex", 
@@ -295,7 +331,7 @@ export default function OrderCommunication() {
                     color: "var(--text-primary)",
                     whiteSpace: "pre-wrap"
                   }}>
-                    {message.content}
+                    {message.message || message.content}
                   </div>
                 </div>
               ))
@@ -326,9 +362,10 @@ export default function OrderCommunication() {
                 onClick={sendMessage}
                 disabled={!newMessage.trim()}
                 className="btn btn-primary"
-                style={{ padding: "12px 24px" }}
+                style={{ padding: "12px 24px", display: "inline-flex", alignItems: "center", gap: "6px" }}
               >
-                📤 Send
+                <Send size={16} />
+                <span>Send</span>
               </button>
             </div>
           </div>

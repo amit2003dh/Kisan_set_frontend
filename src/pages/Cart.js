@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import {
+  ShoppingCart,
+  ShoppingBag,
+  Sprout,
+  Trash2,
+  Plus,
+  Minus,
+  ArrowRight,
+  ShieldCheck,
+  FlaskConical,
+  AlertTriangle
+} from "lucide-react";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -38,7 +50,7 @@ export default function Cart() {
     
     // Navigate to payment page with cart items
     const total = getCartTotal();
-    navigate(`/payment?total=${total}&fromCart=true`);
+    navigate("/payment", { state: { items: cart, total: total } });
   };
 
   // Show loading state while cart is being loaded
@@ -46,7 +58,10 @@ export default function Cart() {
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="page-header">
-          <h1>🛒 Shopping Cart</h1>
+          <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+            <ShoppingCart size={32} color="var(--primary-blue)" />
+            <span>Shopping Cart</span>
+          </h1>
           <p>Loading your cart...</p>
         </div>
         <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
@@ -61,24 +76,50 @@ export default function Cart() {
     return (
       <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
         <div className="page-header">
-          <h1>🛒 Shopping Cart</h1>
+          <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+            <ShoppingCart size={32} color="var(--primary-blue)" />
+            <span>Shopping Cart</span>
+          </h1>
           <p>Your cart is empty</p>
         </div>
 
         <div className="empty-state card" style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontSize: "64px", marginBottom: "24px" }}>🛒</div>
-          <h3 style={{ marginBottom: "12px", color: "var(--text-primary)" }}>
+          <div style={{ 
+            width: "96px", 
+            height: "96px", 
+            borderRadius: "50%", 
+            background: "#e8f5e9", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center",
+            margin: "0 auto 24px"
+          }}>
+            <ShoppingCart size={48} color="var(--primary-green)" />
+          </div>
+          <h3 style={{ marginBottom: "12px", color: "var(--text-primary)", fontSize: "24px" }}>
             Your cart is empty
           </h3>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "32px" }}>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "32px", fontSize: "16px" }}>
             Start adding items to your cart to continue shopping
           </p>
-          <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
-            <Link to="/crops" className="btn btn-primary">
-              Browse Crops
+          <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to="/crops" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}>
+              <Sprout size={20} color="white" />
+              <span>Browse Crops</span>
             </Link>
-            <Link to="/products" className="btn btn-secondary">
-              Browse Products
+            <Link to="/products" className="btn" style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              padding: '12px 24px',
+              background: 'var(--primary-blue)',
+              color: 'white',
+              borderRadius: 'var(--border-radius-sm)',
+              textDecoration: 'none',
+              fontWeight: '600'
+            }}>
+              <ShoppingBag size={20} color="white" />
+              <span>Browse Products</span>
             </Link>
           </div>
         </div>
@@ -91,7 +132,10 @@ export default function Cart() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>🛒 Shopping Cart</h1>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <ShoppingCart size={32} color="var(--primary-blue)" />
+          <span>Shopping Cart</span>
+        </h1>
         <p>{cart.length} {cart.length === 1 ? "item" : "items"} in your cart</p>
       </div>
 
@@ -161,11 +205,10 @@ export default function Cart() {
                     display: "none",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "48px",
                     flexShrink: 0
                   }}
                 >
-                  {item.type === "crop" ? "🌾" : item.type === "seed" ? "🌱" : "🧪"}
+                  {item.type === "crop" ? <Sprout size={40} color="white" /> : item.type === "seed" ? <Sprout size={40} color="white" /> : <FlaskConical size={40} color="white" />}
                 </div>
 
                 <div style={{ flex: 1 }}>
@@ -217,26 +260,28 @@ export default function Cart() {
 
                     <button
                       onClick={() => removeFromCart(item._id, item.type)}
+                      title="Remove item"
                       style={{
                         background: "transparent",
                         border: "none",
                         color: "var(--text-secondary)",
                         cursor: "pointer",
-                        fontSize: "20px",
                         padding: "4px 8px",
                         borderRadius: "var(--border-radius-sm)",
-                        transition: "background 0.2s"
+                        transition: "background 0.2s",
+                        display: "inline-flex",
+                        alignItems: "center"
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.background = "#fee";
-                        e.target.style.color = "#f44336";
+                        e.currentTarget.style.background = "#fee";
+                        e.currentTarget.style.color = "#f44336";
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.background = "transparent";
-                        e.target.style.color = "var(--text-secondary)";
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "var(--text-secondary)";
                       }}
                     >
-                      ×
+                      <Trash2 size={18} />
                     </button>
                   </div>
 
@@ -282,24 +327,22 @@ export default function Cart() {
                             background: "white",
                             borderRadius: "var(--border-radius-sm)",
                             cursor: "pointer",
-                            fontSize: "20px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             color: "var(--text-primary)",
-                            fontWeight: "bold",
                             transition: "all 0.2s"
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.background = "#f5f5f5";
-                            e.target.style.borderColor = "var(--primary-green)";
+                            e.currentTarget.style.background = "#f5f5f5";
+                            e.currentTarget.style.borderColor = "var(--primary-green)";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.background = "white";
-                            e.target.style.borderColor = "var(--border)";
+                            e.currentTarget.style.background = "white";
+                            e.currentTarget.style.borderColor = "var(--border)";
                           }}
                         >
-                          −
+                          <Minus size={16} />
                         </button>
                         <input
                           type="number"
@@ -414,7 +457,6 @@ export default function Cart() {
                             ) 
                               ? "not-allowed" 
                               : "pointer",
-                            fontSize: "20px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -424,7 +466,6 @@ export default function Cart() {
                             )
                               ? "var(--text-light)"
                               : "var(--text-primary)",
-                            fontWeight: "bold",
                             opacity: (
                               (item.type === "crop" && item.availableQuantity !== undefined && item.availableQuantity !== null && item.quantity >= item.availableQuantity) ||
                               (item.type !== "crop" && item.stock !== undefined && item.stock !== null && item.quantity >= item.stock)
@@ -434,19 +475,19 @@ export default function Cart() {
                             transition: "all 0.2s"
                           }}
                           onMouseEnter={(e) => {
-                            if (!e.target.disabled) {
-                              e.target.style.background = "#f5f5f5";
-                              e.target.style.borderColor = "var(--primary-green)";
+                            if (!e.currentTarget.disabled) {
+                              e.currentTarget.style.background = "#f5f5f5";
+                              e.currentTarget.style.borderColor = "var(--primary-green)";
                             }
                           }}
                           onMouseLeave={(e) => {
-                            if (!e.target.disabled) {
-                              e.target.style.background = "white";
-                              e.target.style.borderColor = "var(--border)";
+                            if (!e.currentTarget.disabled) {
+                              e.currentTarget.style.background = "white";
+                              e.currentTarget.style.borderColor = "var(--border)";
                             }
                           }}
                         >
-                          +
+                          <Plus size={16} />
                         </button>
                       </div>
                       <div style={{ marginLeft: "auto", fontSize: "18px", fontWeight: "700", color: "var(--primary-green)", minWidth: "100px", textAlign: "right" }}>
@@ -462,9 +503,13 @@ export default function Cart() {
                         border: "1px solid #ff9800",
                         borderRadius: "var(--border-radius-sm)",
                         fontSize: "13px",
-                        color: "#f57c00"
+                        color: "#f57c00",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
                       }}>
-                        ⚠️ Maximum quantity reached. Only {item.availableQuantity} kg available.
+                        <AlertTriangle size={16} />
+                        <span>Maximum quantity reached. Only {item.availableQuantity} kg available.</span>
                       </div>
                     )}
                     {/* Show warning for products when stock limit reached */}
@@ -476,9 +521,13 @@ export default function Cart() {
                         border: "1px solid #ff9800",
                         borderRadius: "var(--border-radius-sm)",
                         fontSize: "13px",
-                        color: "#f57c00"
+                        color: "#f57c00",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
                       }}>
-                        ⚠️ Maximum quantity reached. Only {item.stock} unit{item.stock !== 1 ? "s" : ""} available in stock.
+                        <AlertTriangle size={16} />
+                        <span>Maximum quantity reached. Only {item.stock} unit{item.stock !== 1 ? "s" : ""} available in stock.</span>
                       </div>
                     )}
                   </div>
@@ -546,10 +595,15 @@ export default function Cart() {
                 padding: "14px",
                 fontSize: "16px",
                 fontWeight: "600",
-                marginBottom: "12px"
+                marginBottom: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px"
               }}
             >
-              Proceed to Checkout
+              <span>Proceed to Checkout</span>
+              <ArrowRight size={18} />
             </button>
 
             <button
@@ -563,16 +617,21 @@ export default function Cart() {
                 color: "var(--text-secondary)",
                 borderRadius: "var(--border-radius-sm)",
                 cursor: "pointer",
-                fontWeight: "600"
+                fontWeight: "600",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px"
               }}
               onMouseEnter={(e) => {
-                e.target.style.background = "#f5f5f5";
+                e.currentTarget.style.background = "#f5f5f5";
               }}
               onMouseLeave={(e) => {
-                e.target.style.background = "transparent";
+                e.currentTarget.style.background = "transparent";
               }}
             >
-              Clear Cart
+              <Trash2 size={16} />
+              <span>Clear Cart</span>
             </button>
           </div>
         </div>
@@ -580,4 +639,3 @@ export default function Cart() {
     </div>
   );
 }
-

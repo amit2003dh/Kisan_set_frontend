@@ -5,6 +5,16 @@ import LiveMap from "../components/LiveMap";
 import OrderChat from "../components/OrderChat";
 import useDeliverySocket from "../hooks/useDeliverySocket";
 import { estimateETA } from "../utils/eta";
+import {
+  MapPin,
+  Truck,
+  CheckCircle2,
+  Package,
+  Clock,
+  Home,
+  User,
+  MessageSquare
+} from "lucide-react";
 
 export default function Tracking() {
   const [searchParams] = useSearchParams();
@@ -34,7 +44,7 @@ export default function Tracking() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🔄 Real-time socket updates
+  // Real-time socket updates
   useDeliverySocket(deliveryId, (data) => {
     setLocation({ lat: data.lat, lng: data.lng });
     setDeliveryStatus(data.status || "In Transit");
@@ -63,14 +73,6 @@ export default function Tracking() {
         return;
       }
 
-      /*
-        Expected backend response:
-        {
-          currentLocation: { lat, lng, status },
-          destination: { lat, lng, address }
-        }
-      */
-
       setLocation(data.currentLocation);
       setPickupLocation(data.pickupLocation);
       setDestination(data.destination);
@@ -97,9 +99,13 @@ export default function Tracking() {
       <div className="page-header" style={{ textAlign: isMobile ? "center" : "left", marginBottom: isMobile ? "24px" : "32px" }}>
         <h1 style={{ 
           fontSize: isMobile ? "24px" : "32px", 
-          marginBottom: isMobile ? "8px" : "16px" 
+          marginBottom: isMobile ? "8px" : "16px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "12px"
         }}>
-          📍 Live Delivery Tracking
+          <MapPin size={32} color="var(--primary-blue)" />
+          <span>Live Delivery Tracking</span>
         </h1>
         <p style={{ 
           fontSize: isMobile ? "14px" : "16px", 
@@ -122,7 +128,7 @@ export default function Tracking() {
         {/* MAP */}
         <div className="card" style={{ 
           padding: 0,
-          order: isMobile ? 2 : 1 // On mobile, show map below status
+          order: isMobile ? 2 : 1
         }}>
           <div style={{ 
             height: isMobile ? "300px" : "420px",
@@ -153,14 +159,17 @@ export default function Tracking() {
 
             <div style={{ textAlign: "center", padding: isMobile ? "16px" : "20px" }}>
               <div style={{ 
-                fontSize: isMobile ? "36px" : "48px",
-                marginBottom: isMobile ? "12px" : "16px"
+                marginBottom: isMobile ? "12px" : "16px",
+                display: "flex",
+                justifyContent: "center"
               }}>
-                {deliveryStatus === "Delivered"
-                  ? "✅"
-                  : deliveryStatus === "Out for Delivery"
-                  ? "🚚"
-                  : "🚛"}
+                {deliveryStatus === "Delivered" ? (
+                  <CheckCircle2 size={isMobile ? 40 : 48} color="var(--primary-green)" />
+                ) : deliveryStatus === "Out for Delivery" ? (
+                  <Truck size={isMobile ? 40 : 48} color="var(--primary-blue)" />
+                ) : (
+                  <Package size={isMobile ? 40 : 48} color="var(--primary-blue)" />
+                )}
               </div>
 
               <h3 style={{ 
@@ -173,9 +182,14 @@ export default function Tracking() {
               {eta && (
                 <p style={{ 
                   marginTop: "12px",
-                  fontSize: isMobile ? "14px" : "16px"
+                  fontSize: isMobile ? "14px" : "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
                 }}>
-                  ⏱ Estimated Arrival: <strong>{eta} mins</strong>
+                  <Clock size={16} />
+                  <span>Estimated Arrival: <strong>{eta} mins</strong></span>
                 </p>
               )}
 
@@ -184,9 +198,14 @@ export default function Tracking() {
                   fontSize: isMobile ? "12px" : "14px", 
                   marginTop: isMobile ? "12px" : "16px",
                   color: "var(--text-secondary)",
-                  lineHeight: "1.4"
+                  lineHeight: "1.4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
                 }}>
-                  🏠 {destination.address}
+                  <Home size={16} />
+                  <span>{destination.address}</span>
                 </p>
               )}
             </div>
@@ -200,9 +219,13 @@ export default function Tracking() {
             }}>
               <h3 style={{ 
                 fontSize: isMobile ? "16px" : "18px",
-                marginBottom: isMobile ? "12px" : "16px"
+                marginBottom: isMobile ? "12px" : "16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
               }}>
-                🚚 Delivery Partner
+                <Truck size={20} color="var(--primary-blue)" />
+                <span>Delivery Partner</span>
               </h3>
               <div style={{ fontSize: isMobile ? "13px" : "14px" }}>
                 <p style={{ marginBottom: isMobile ? "8px" : "12px" }}>
@@ -234,9 +257,13 @@ export default function Tracking() {
             }}>
               <h3 style={{ 
                 fontSize: isMobile ? "16px" : "18px",
-                marginBottom: isMobile ? "12px" : "16px"
+                marginBottom: isMobile ? "12px" : "16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
               }}>
-                👤 Customer
+                <User size={20} color="var(--primary-green)" />
+                <span>Customer</span>
               </h3>
               <div style={{ fontSize: isMobile ? "13px" : "14px" }}>
                 <p style={{ marginBottom: isMobile ? "8px" : "12px" }}>
@@ -269,9 +296,13 @@ export default function Tracking() {
       }}>
         <h2 style={{ 
           fontSize: isMobile ? "18px" : "20px",
-          marginBottom: isMobile ? "12px" : "16px"
+          marginBottom: isMobile ? "12px" : "16px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
         }}>
-          💬 Order Communication
+          <MessageSquare size={20} color="var(--primary-blue)" />
+          <span>Order Communication</span>
         </h2>
         <p style={{ 
           color: "var(--text-secondary)", 

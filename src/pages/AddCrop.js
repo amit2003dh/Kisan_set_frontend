@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import LiveMap from "../components/LiveMap";
+import {
+  PlusCircle,
+  MapPin,
+  Navigation,
+  Phone,
+  Camera
+} from "lucide-react";
 
 export default function AddCrop() {
   const navigate = useNavigate();
@@ -168,7 +175,7 @@ export default function AddCrop() {
         setError(err);
         setLoading(false);
       } else {
-        setSuccess("Crop added successfully! 🎉");
+        setSuccess("Crop added successfully!");
         setTimeout(() => navigate("/crops"), 1200);
       }
     } catch (err) {
@@ -178,10 +185,13 @@ export default function AddCrop() {
   };
 
   return (
-    <div className="container" style={{ padding: "30px 20px", maxWidth: "650px", margin: "0 auto" }}>
-      <div className="page-header" style={{ marginBottom: "20px" }}>
-        <h1>➕ Add New Crop</h1>
-        <p style={{ color: "var(--text-secondary)" }}>List your crop for sale on the marketplace</p>
+    <div className="container" style={{ padding: "48px 20px 60px", maxWidth: "650px", margin: "0 auto" }}>
+      <div className="page-header" style={{ marginBottom: "24px" }}>
+        <h1 style={{ display: "inline-flex", alignItems: "center", gap: "12px" }}>
+          <PlusCircle size={32} color="var(--primary-blue)" />
+          <span>Add New Crop</span>
+        </h1>
+        <p style={{ color: "var(--text-secondary)", marginTop: "4px" }}>List your crop for sale on the marketplace</p>
       </div>
 
       <div className="card" style={{ padding: "24px" }}>
@@ -248,7 +258,10 @@ export default function AddCrop() {
           </div>
 
           <div style={{ marginBottom: "24px", padding: "20px", background: "var(--background)", borderRadius: "var(--border-radius-sm)" }}>
-            <h3 style={{ marginBottom: "14px" }}>📍 Farm Location</h3>
+            <h3 style={{ marginBottom: "14px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <MapPin size={20} color="var(--primary-blue)" />
+              <span>Farm Location</span>
+            </h3>
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Farm Address *</label>
@@ -287,18 +300,20 @@ export default function AddCrop() {
                   onClick={predictCoordinatesFromAddress}
                   disabled={loading || !crop.location.address}
                   className="btn btn-secondary"
-                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                  style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 >
-                  🎯 Predict Coordinates
+                  <Navigation size={14} />
+                  <span>Predict Coordinates</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setUseCurrentLocation(!useCurrentLocation)}
                   disabled={loading}
                   className="btn btn-outline"
-                  style={{ fontSize: "12px", padding: "6px 12px" }}
+                  style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 >
-                  {useCurrentLocation ? "📍 Live Location On" : "👤 Use My Location"}
+                  <MapPin size={14} />
+                  <span>{useCurrentLocation ? "Live Location On" : "Use My Location"}</span>
                 </button>
               </div>
             </div>
@@ -314,7 +329,10 @@ export default function AddCrop() {
           </div>
 
           <div style={{ marginBottom: "18px" }}>
-            <h3 style={{ marginBottom: "12px" }}>📞 Contact Details</h3>
+            <h3 style={{ marginBottom: "12px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <Phone size={20} color="var(--primary-green)" />
+              <span>Contact Details</span>
+            </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "4px", fontSize: "13px" }}>Phone *</label>
@@ -328,7 +346,10 @@ export default function AddCrop() {
           </div>
 
           <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>📷 Crop Photo</label>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "6px", fontWeight: "600" }}>
+              <Camera size={18} color="var(--primary-blue)" />
+              <span>Crop Photo</span>
+            </label>
             <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading} />
             {fieldErrors.image && <div style={{ color: "red", fontSize: "13px", marginTop: "4px" }}>{fieldErrors.image}</div>}
             {imagePreview && (

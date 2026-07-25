@@ -2,9 +2,21 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
-const user = JSON.parse(localStorage.getItem("user"));
+import {
+  Sprout,
+  PlusCircle,
+  Package,
+  ShoppingCart,
+  ShoppingBag,
+  Stethoscope,
+  Mic,
+  TrendingUp,
+  IndianRupee,
+  Inbox
+} from "lucide-react";
 
 export default function FarmerDashboard() {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
   const [stats, setStats] = useState({ crops: 0, orders: 0, revenue: 0, products: 0 });
   const [loading, setLoading] = useState(true);
@@ -203,14 +215,14 @@ A farmer said: "${transcript.trim()}"
 Your task:
 - Provide SPECIFIC, ACTIONABLE advice for farmers
 - Respond in the SAME language as the query (Hindi or English)
-- Keep responses concise but detailed (2-3 sentences maximum)
+- Keep responses concise, clear, and complete (2-3 full sentences)
+- ALWAYS COMPLETE EVERY SENTENCE FULLY. Never stop or cut off mid-sentence.
 - Be professional yet friendly like a farming expert
 - Always give practical, implementable solutions
-- Include specific next steps when possible
 - NO PHOTO REQUESTS - This is voice-only assistance
 
 Farmer-Specific Response Guidelines:
-- For crop health: Ask for crop name, symptoms, and photos. Suggest specific treatments.
+- For crop health: Ask for crop name and symptoms. Suggest specific treatments.
 - For market prices: Ask for crop name and location. Give current market trends.
 - For orders: Direct to dashboard with specific steps.
 - For pesticides: Ask for crop and pest type. Recommend safe, approved options.
@@ -220,11 +232,11 @@ Farmer-Specific Response Guidelines:
 - For seeds: Ask for crop and season. Recommend high-yield varieties.
 
 Example responses:
-- "मेरी फसल पीली है" → "आपकी फसल की पीली रोग के लिए नीम तेल 5ml प्रति लीटर पानी में मिलाकर स्प्रे करें। फसल का नाम और पत्ते बताएं ताकि मैं उपचारित उपाय सुझा सकूं।"
-- "गेहूं का भाव" → "आज गेहूं का भाव ₹2500-2800 प्रति क्विंटल है। अपनी फसल की गुणवत्ता के अनुसार बेहतर भाव पाएं। बाजार समिति के लिए सुबह 10 बजे पर जाएं।"
-- "मेरा ऑर्डर कहाँ है" → "अपने ऑर्डर की स्थिति देखने के लिए डैशबोर्ड पर 'ऑर्डर' सेक्शन पर जाएं। आप वहां ट्रैकिंग नंबर से अपना ऑर्डर ट्रैक कर सकते हैं।"
+- "मेरी फसल पीली है" → "आपकी फसल की पीली बीमारी के लिए नीम का तेल 5ml प्रति लीटर पानी में मिलाकर छिड़काव करें। फसल का नाम बताएं ताकि सटीक इलाज बताया जा सके।"
+- "गेहूं का भाव" → "आज गेहूं का मंडी भाव ₹2500 से ₹2800 प्रति क्विंटल है। अच्छी गुणवत्ता की फसल के लिए अपनी निकटतम मंडी समिति में संपर्क करें।"
+- "मेरा ऑर्डर कहाँ है" → "अपने ऑर्डर की लाइव स्थिति देखने के लिए डैशबोर्ड पर 'ऑर्डर' सेक्शन में जाएं। वहां आपको डिलीवरी पार्टनर की लाइव लोकेशन दिखेगी।"
 
-IMPORTANT: Always provide specific, actionable advice that farmers can implement immediately. Avoid vague responses. If you need more information, ask specific questions.
+IMPORTANT: Always provide complete, actionable advice that farmers can implement immediately. Never leave a sentence unfinished.
 `;
 
           console.log("🎤 Making API call to Gemini with transcript:", transcript);
@@ -333,13 +345,13 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
   };
 
   const quickActions = [
-    { path: "/manage-crops", label: "Manage Crops", icon: "🌾", color: "#2e7d32" },
-    { path: "/add-crop", label: "Add New Crop", icon: "➕", color: "#388e3c" },
-    { path: "/seller-orders", label: "My Crop Sales", icon: "🌾", color: "#1976d2" },
-    { path: "/orders", label: "My Purchase Orders", icon: "🛒", color: "#f57c00" },
-    { path: "/products", label: "Buy Products", icon: "🛒", color: "#f57c00" },
-    { path: "/cart", label: "My Cart", icon: "🛍️", color: "#7b1fa2" },
-    { path: "/crop-doctor", label: "Crop Doctor", icon: "👨‍⚕️", color: "#d32f2f" }
+    { path: "/manage-crops", label: "Manage Crops", Icon: Sprout, color: "#2e7d32" },
+    { path: "/add-crop", label: "Add New Crop", Icon: PlusCircle, color: "#388e3c" },
+    { path: "/seller-orders", label: "My Crop Sales", Icon: Package, color: "#1976d2" },
+    { path: "/orders", label: "My Purchase Orders", Icon: ShoppingCart, color: "#f57c00" },
+    { path: "/products", label: "Buy Products", Icon: ShoppingBag, color: "#f57c00" },
+    { path: "/cart", label: "My Cart", Icon: ShoppingCart, color: "#7b1fa2" },
+    { path: "/crop-doctor", label: "Crop Doctor", Icon: Stethoscope, color: "#d32f2f" }
   ];
 
   return (
@@ -359,9 +371,13 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           <div>
             <h1 style={{ 
               fontSize: isMobile ? "24px" : "32px",
-              marginBottom: isMobile ? "8px" : "16px"
+              marginBottom: isMobile ? "8px" : "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px"
             }}>
-              👨‍🌾 Farmer Dashboard
+              <Sprout size={32} color="#2e7d32" />
+              <span>Farmer Dashboard</span>
             </h1>
             <p style={{ 
               fontSize: isMobile ? "14px" : "16px",
@@ -384,10 +400,15 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
                 fontSize: isMobile ? "13px" : "14px", 
                 padding: isMobile ? "12px 16px" : "10px 20px",
                 width: isMobile ? "100%" : "auto",
-                textAlign: "center"
+                textAlign: "center",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px"
               }}
             >
-              🌾 Crop Sales
+              <Package size={18} />
+              <span>Crop Sales</span>
             </Link>
             <Link 
               to="/orders" 
@@ -396,10 +417,15 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
                 fontSize: isMobile ? "13px" : "14px", 
                 padding: isMobile ? "12px 16px" : "10px 20px",
                 width: isMobile ? "100%" : "auto",
-                textAlign: "center"
+                textAlign: "center",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px"
               }}
             >
-              🛒 My Purchases
+              <ShoppingCart size={18} />
+              <span>My Purchases</span>
             </Link>
           </div>
         </div>
@@ -429,7 +455,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.boxShadow = "none";
         }}
         >
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>🌾</div>
+          <div style={{ marginBottom: isMobile ? "10px" : "12px" }}>
+            <Sprout size={isMobile ? 28 : 32} color="#ffffff" />
+          </div>
           <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.crops}
           </div>
@@ -453,7 +481,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.boxShadow = "none";
         }}
         >
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>📦</div>
+          <div style={{ marginBottom: isMobile ? "10px" : "12px" }}>
+            <Package size={isMobile ? 28 : 32} color="#ffffff" />
+          </div>
           <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.orders}
           </div>
@@ -477,7 +507,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>💰</div>
+          <div style={{ marginBottom: isMobile ? "10px" : "12px" }}>
+            <IndianRupee size={isMobile ? 28 : 32} color="#ffffff" />
+          </div>
           <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : `₹${stats.revenue.toLocaleString()}`}
           </div>
@@ -501,7 +533,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: isMobile ? "10px" : "12px" }}>🛒</div>
+          <div style={{ marginBottom: isMobile ? "10px" : "12px" }}>
+            <ShoppingCart size={isMobile ? 28 : 32} color="#ffffff" />
+          </div>
           <div style={{ fontSize: isMobile ? "28px" : "36px", fontWeight: "700", marginBottom: "4px" }}>
             {loading ? "..." : stats.purchaseOrders || 0}
           </div>
@@ -513,7 +547,10 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
       <div className="card" style={{ marginBottom: "40px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: "20px", color: "#2e7d32" }}>🛒 Available Products</h3>
+            <h3 style={{ margin: 0, fontSize: "20px", color: "#2e7d32", display: "flex", alignItems: "center", gap: "8px" }}>
+              <ShoppingBag size={22} color="#2e7d32" />
+              <span>Available Products</span>
+            </h3>
             <p style={{ margin: 0, color: "#666", fontSize: "14px" }}>Browse products for your farming needs</p>
           </div>
           <Link to="/products" className="btn btn-primary" style={{ fontSize: "14px", padding: "8px 16px" }}>
@@ -574,7 +611,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           </div>
         ) : (
           <div style={{ textAlign: "center", padding: "40px 20px", color: "#666" }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📦</div>
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+              <Inbox size={48} color="#999" />
+            </div>
             <h4 style={{ margin: "0 0 8px 0", color: "#333" }}>No Products Available</h4>
             <p style={{ margin: 0, fontSize: "14px" }}>
               Check back later for new farming products and supplies
@@ -586,7 +625,9 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
       {/* Voice Assistant */}
       <div className="card" style={{ marginBottom: "40px", background: "linear-gradient(135deg, #7b1fa2 0%, #4a148c 100%)", color: "white", border: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
-          <div style={{ fontSize: "32px" }}>🎙️</div>
+          <div style={{ padding: "10px", background: "rgba(255,255,255,0.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Mic size={28} color="white" />
+          </div>
           <div>
             <h3 style={{ margin: 0, fontSize: "20px" }}>Voice Assistant</h3>
             <p style={{ margin: 0, opacity: 0.9, fontSize: "14px" }}>Speak in Hindi to interact with the platform</p>
@@ -602,7 +643,11 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
             width: "100%",
             fontSize: "18px",
             padding: "16px",
-            fontWeight: "600"
+            fontWeight: "600",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px"
           }}
         >
           {listening ? (
@@ -618,16 +663,21 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
               Listening...
             </>
           ) : (
-            "🎙️ Tap to Speak"
+            <>
+              <Mic size={22} color="#7b1fa2" />
+              <span>Tap to Speak</span>
+            </>
           )}
         </button>
         {voiceResult && (
           <div style={{
             marginTop: "16px",
-            padding: "12px",
+            padding: "12px 16px",
             background: "rgba(255,255,255,0.2)",
             borderRadius: "var(--border-radius-sm)",
-            fontSize: "14px"
+            fontSize: "14px",
+            whiteSpace: "pre-line",
+            lineHeight: "1.5"
           }}>
             {voiceResult}
           </div>
@@ -647,49 +697,53 @@ IMPORTANT: Always provide specific, actionable advice that farmers can implement
           gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
           gap: isMobile ? "16px" : "20px"
         }}>
-          {quickActions.map((action) => (
-            <Link
-              key={action.path}
-              to={action.path}
-              style={{ textDecoration: "none" }}
-            >
-              <div className="card" style={{
-                cursor: "pointer",
-                borderLeft: `4px solid ${action.color}`,
-                transition: "all 0.3s",
-                padding: isMobile ? "20px 16px" : "24px",
-                textAlign: "center"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-4px)";
-                e.currentTarget.style.boxShadow = "var(--shadow-lg)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "var(--shadow-md)";
-              }}
+          {quickActions.map((action) => {
+            const IconComponent = action.Icon;
+            return (
+              <Link
+                key={action.path}
+                to={action.path}
+                style={{ textDecoration: "none" }}
               >
-                <div style={{ 
-                  fontSize: isMobile ? "28px" : "32px", 
-                  marginBottom: isMobile ? "10px" : "12px",
-                  display: "inline-block",
-                  padding: "12px",
-                  background: `${action.color}15`,
-                  borderRadius: "var(--border-radius-sm)"
-                }}>
-                  {action.icon}
+                <div className="card" style={{
+                  cursor: "pointer",
+                  borderLeft: `4px solid ${action.color}`,
+                  transition: "all 0.3s",
+                  padding: isMobile ? "20px 16px" : "24px",
+                  textAlign: "center"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-4px)";
+                  e.currentTarget.style.boxShadow = "var(--shadow-lg)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "var(--shadow-md)";
+                }}
+                >
+                  <div style={{ 
+                    marginBottom: isMobile ? "10px" : "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "12px",
+                    background: `${action.color}15`,
+                    borderRadius: "var(--border-radius-sm)"
+                  }}>
+                    {IconComponent && <IconComponent size={isMobile ? 28 : 32} color={action.color} />}
+                  </div>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: "var(--text-primary)",
+                    fontSize: isMobile ? "14px" : "16px",
+                    fontWeight: "600"
+                  }}>
+                    {action.label}
+                  </h3>
                 </div>
-                <h3 style={{ 
-                  margin: 0, 
-                  color: "var(--text-primary)",
-                  fontSize: isMobile ? "14px" : "16px",
-                  fontWeight: "600"
-                }}>
-                  {action.label}
-                </h3>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

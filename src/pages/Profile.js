@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
+import { User, Camera, Save, UploadCloud } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -52,24 +53,17 @@ export default function Profile() {
     }
     
     setLoading(false);
-  }, [navigate]);
+  }, [STATIC_BASE_URL, navigate]);
 
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Validate phone number (only digits, max 10)
-    if (name === "phone") {
-      const digitsOnly = value.replace(/\D/g, ""); // Remove non-digits
-      if (digitsOnly.length <= 10) {
-        setFormData({ ...formData, [name]: digitsOnly });
-      }
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
     
     setError("");
     setSuccess("");
@@ -77,79 +71,78 @@ export default function Profile() {
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (file) {
+      // Validate file type
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+      if (!validTypes.includes(file.type.toLowerCase())) {
+        setError("Invalid file type. Only JPEG, PNG, GIF, and WEBP images are allowed.");
+        return;
+      }
 
-    // Validate file type
-    if (!file.type.match(/image\/(jpeg|jpg|png|gif|webp)/)) {
-      setError("Please select a valid image file (JPEG, PNG, GIF, or WebP)");
-      return;
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size too large. Maximum size is 5MB.");
+        return;
+      }
+
+      setSelectedPhoto(file);
+      setError("");
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size must be less than 5MB");
-      return;
-    }
-
-    setSelectedPhoto(file);
-    setError("");
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handlePhotoUpload = async () => {
-    if (!selectedPhoto) {
-      setError("Please select a photo to upload");
-      return;
-    }
+    if (!selectedPhoto) return;
 
     setUploading(true);
     setError("");
     setSuccess("");
 
-    try {
-      const formData = new FormData();
-      formData.append("photo", selectedPhoto);
+    const photoFormData = new FormData();
+    photoFormData.append("profilePhoto", selectedPhoto);
 
+    try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/users/profile/photo`, {
+      const response = await fetch(`${API_BASE_URL}/users/profile-photo`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
         },
-        body: formData
+        body: photoFormData
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to upload photo");
-      }
+      if (response.ok) {
+        setSuccess("Profile photo updated successfully!");
+        const updatedPhotoUrl = `${STATIC_BASE_URL}${data.profilePhoto}?t=${Date.now()}`;
+        setPhotoPreview(updatedPhotoUrl);
+        setSelectedPhoto(null);
 
-      setSuccess("Profile photo updated successfully!");
-      setSelectedPhoto(null);
-      
-      // Update local storage and photo preview
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        setUser(data.user);
-        if (data.user.profilePhoto) {
-          // Add timestamp to force browser to reload the image (cache busting)
-          const photoUrl = `${STATIC_BASE_URL}${data.user.profilePhoto}?t=${Date.now()}`;
-          setPhotoPreview(photoUrl);
-        } else {
-          setPhotoPreview(null);
+        // Update local storage user data
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          userData.profilePhoto = data.profilePhoto;
+          localStorage.setItem("user", JSON.stringify(userData));
         }
-      }
 
-      setTimeout(() => setSuccess(""), 3000);
+        setUser(prev => ({
+          ...prev,
+          profilePhoto: data.profilePhoto
+        }));
+      } else {
+        setError(data.error || data.message || "Failed to upload profile photo");
+      }
     } catch (err) {
-      setError(err.message || "Failed to upload photo");
+      console.error("Photo upload error:", err);
+      setError("Network error. Failed to upload photo.");
     } finally {
       setUploading(false);
     }
@@ -157,16 +150,16 @@ export default function Profile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate phone number
-    if (formData.phone && formData.phone.length !== 10) {
-      setError("Phone number must be exactly 10 digits");
-      return;
-    }
-
     setSaving(true);
     setError("");
     setSuccess("");
+
+    // Validate phone number
+    if (formData.phone && formData.phone.length !== 10) {
+      setError("Phone number must be exactly 10 digits");
+      setSaving(false);
+      return;
+    }
 
     const { data, error: err } = await apiCall(() =>
       API.put("/users/profile", formData)
@@ -203,7 +196,10 @@ export default function Profile() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>👤 My Profile</h1>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <User size={32} color="var(--primary-blue)" />
+          <span>My Profile</span>
+        </h1>
         <p>Manage your profile information and photo</p>
       </div>
 
@@ -263,12 +259,7 @@ export default function Profile() {
                   }}
                 />
               ) : (
-                <div style={{
-                  fontSize: "64px",
-                  color: "var(--text-light)"
-                }}>
-                  👤
-                </div>
+                <User size={64} color="var(--text-light)" />
               )}
             </div>
 
@@ -287,10 +278,14 @@ export default function Profile() {
                   width: "100%",
                   textAlign: "center",
                   cursor: "pointer",
-                  display: "block"
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px"
                 }}
               >
-                📷 Choose Photo
+                <Camera size={18} />
+                <span>Choose Photo</span>
               </label>
             </div>
 
@@ -300,7 +295,7 @@ export default function Profile() {
                 className="btn btn-primary"
                 onClick={handlePhotoUpload}
                 disabled={uploading}
-                style={{ width: "100%" }}
+                style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
               >
                 {uploading ? (
                   <>
@@ -313,7 +308,10 @@ export default function Profile() {
                     Uploading...
                   </>
                 ) : (
-                  "💾 Upload Photo"
+                  <>
+                    <UploadCloud size={18} />
+                    <span>Upload Photo</span>
+                  </>
                 )}
               </button>
             )}
@@ -459,7 +457,7 @@ export default function Profile() {
               type="submit"
               className="btn btn-primary"
               disabled={saving}
-              style={{ width: "100%" }}
+              style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
             >
               {saving ? (
                 <>
@@ -472,7 +470,10 @@ export default function Profile() {
                   Saving...
                 </>
               ) : (
-                "💾 Save Changes"
+                <>
+                  <Save size={18} />
+                  <span>Save Changes</span>
+                </>
               )}
             </button>
           </form>
@@ -481,4 +482,3 @@ export default function Profile() {
     </div>
   );
 }
-

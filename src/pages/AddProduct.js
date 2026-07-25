@@ -2,6 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import LiveMap from "../components/LiveMap";
+import {
+  Package,
+  MapPin,
+  Navigation,
+  Camera
+} from "lucide-react";
 
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -12,8 +18,7 @@ export default function AddProduct() {
     crop: "",
     price: "",
     stock: "",
-    location: { address: "", city: "", state: "", pincode: "", lat: 0, lng: 0, landmark: "" },
-    contactInfo: { phone: "", email: "", preferredContact: "phone" }
+    location: { address: "", city: "", state: "", pincode: "", lat: 0, lng: 0 }
   });
 
   const [image, setImage] = useState(null);
@@ -24,22 +29,15 @@ export default function AddProduct() {
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes(".")) {
-      const [parent, child] = name.split(".");
-      setProduct(prev => ({ ...prev, [parent]: { ...prev[parent], [child]: value } }));
-    } else {
-      setProduct(prev => ({ ...prev, [name]: value }));
-    }
+    setProduct({ ...product, [e.target.name]: e.target.value });
     setError("");
   };
 
   const handleLocationChange = (e) => {
-    const { name, value } = e.target;
-    setProduct(prev => ({
-      ...prev,
-      location: { ...prev.location, [name]: value } 
-    }));
+    setProduct({
+      ...product,
+      location: { ...product.location, [e.target.name]: e.target.value }
+    });
     setError("");
   };
 
@@ -52,7 +50,10 @@ export default function AddProduct() {
 
   const predictCoordinatesFromAddress = async () => {
     const addressToUse = product.location.address;
-    if (!addressToUse) return setError("Please enter an address first");
+    if (!addressToUse) {
+      setError("Please enter seller address first");
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -80,45 +81,40 @@ export default function AddProduct() {
         setError("Could not find coordinates for this address.");
       }
     } catch (err) {
-      setError("Error predicting coordinates");
+      setError("Failed to geocode address");
     }
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      return setError("Image size must be less than 5MB");
+    if (file) {
+      setImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
-
-    setImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
   };
 
   const submit = async (e) => {
     e.preventDefault();
 
-    if (!product.name.trim()) return setError("Please enter product name");
+    if (!product.name) return setError("Please enter product name");
     if (!product.price || parseFloat(product.price) <= 0) return setError("Please enter a valid price");
     if (!product.stock || parseInt(product.stock) < 0) return setError("Please enter valid stock quantity");
-    if (!product.location.address.trim()) return setError("Please enter location address");
+    if (!product.location.address) return setError("Please enter location address");
 
     setLoading(true);
     setError("");
-    setSuccess("");
 
     try {
       const formData = new FormData();
-      formData.append("name", product.name.trim());
+      formData.append("name", product.name);
       formData.append("type", product.type);
-      formData.append("crop", product.crop || "");
       formData.append("price", parseFloat(product.price));
       formData.append("stock", parseInt(product.stock));
-      formData.append("status", parseInt(product.stock) > 0 ? "Available" : "Out of Stock");
-      formData.append("contactInfo", JSON.stringify(product.contactInfo));
+      formData.append("crop", product.crop || "");
       formData.append("location", JSON.stringify(product.location));
 
       if (image) formData.append("image", image);
@@ -131,7 +127,7 @@ export default function AddProduct() {
         setError(err);
         setLoading(false);
       } else {
-        setSuccess("Product added successfully! 🎉");
+        setSuccess("Product added successfully!");
         setTimeout(() => navigate("/manage-products"), 1200);
       }
     } catch (err) {
@@ -141,10 +137,13 @@ export default function AddProduct() {
   };
 
   return (
-    <div className="container" style={{ padding: "30px 20px", maxWidth: "650px", margin: "0 auto" }}>
-      <div className="page-header" style={{ marginBottom: "20px" }}>
-        <h1>📦 Add New Product</h1>
-        <p style={{ color: "var(--text-secondary)" }}>List agri-inputs (seeds, fertilizers, pesticides) for sale</p>
+    <div className="container" style={{ padding: "48px 20px 60px", maxWidth: "650px", margin: "0 auto" }}>
+      <div className="page-header" style={{ marginBottom: "24px" }}>
+        <h1 style={{ display: "inline-flex", alignItems: "center", gap: "12px" }}>
+          <Package size={32} color="var(--primary-blue)" />
+          <span>Add New Product</span>
+        </h1>
+        <p style={{ color: "var(--text-secondary)", marginTop: "4px" }}>List agri-inputs (seeds, fertilizers, pesticides) for sale</p>
       </div>
 
       <div className="card" style={{ padding: "24px" }}>
@@ -185,7 +184,10 @@ export default function AddProduct() {
           </div>
 
           <div style={{ marginBottom: "24px", padding: "20px", background: "var(--background)", borderRadius: "8px" }}>
-            <h3 style={{ marginBottom: "14px" }}>📍 Seller Location</h3>
+            <h3 style={{ marginBottom: "14px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <MapPin size={20} color="var(--primary-blue)" />
+              <span>Seller Location</span>
+            </h3>
             <div style={{ marginBottom: "14px" }}>
               <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>Address *</label>
               <textarea className="input" name="address" placeholder="Address" value={product.location.address} onChange={handleLocationChange} disabled={loading} required rows="2" />
@@ -200,8 +202,14 @@ export default function AddProduct() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <span style={{ fontWeight: "600", fontSize: "14px" }}>Location Map</span>
               <div style={{ display: "flex", gap: "8px" }}>
-                <button type="button" onClick={predictCoordinatesFromAddress} disabled={loading || !product.location.address} className="btn btn-secondary" style={{ fontSize: "12px", padding: "6px 12px" }}>🎯 Predict</button>
-                <button type="button" onClick={() => setUseCurrentLocation(!useCurrentLocation)} disabled={loading} className="btn btn-outline" style={{ fontSize: "12px", padding: "6px 12px" }}>{useCurrentLocation ? "📍 Live On" : "👤 My Location"}</button>
+                <button type="button" onClick={predictCoordinatesFromAddress} disabled={loading || !product.location.address} className="btn btn-secondary" style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <Navigation size={14} />
+                  <span>Predict</span>
+                </button>
+                <button type="button" onClick={() => setUseCurrentLocation(!useCurrentLocation)} disabled={loading} className="btn btn-outline" style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <MapPin size={14} />
+                  <span>{useCurrentLocation ? "Live On" : "My Location"}</span>
+                </button>
               </div>
             </div>
 
@@ -211,7 +219,10 @@ export default function AddProduct() {
           </div>
 
           <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "6px", fontWeight: "600" }}>📷 Product Image</label>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "6px", fontWeight: "600" }}>
+              <Camera size={18} color="var(--primary-blue)" />
+              <span>Product Image</span>
+            </label>
             <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading} />
             {imagePreview && <img src={imagePreview} alt="Preview" style={{ marginTop: "10px", width: "100%", maxHeight: "200px", objectFit: "cover", borderRadius: "8px" }} />}
           </div>

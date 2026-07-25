@@ -2,6 +2,21 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API, { apiCall } from "../api/api";
 import ChatBox from "../components/ChatBox";
+import {
+  Package,
+  Clock,
+  CheckCircle2,
+  Truck,
+  IndianRupee,
+  ShoppingBag,
+  ShoppingCart,
+  Sprout,
+  MessageSquare,
+  MapPin,
+  ClipboardList,
+  XCircle,
+  PartyPopper
+} from "lucide-react";
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
@@ -48,66 +63,65 @@ export default function Orders() {
         console.error("Error parsing user data:", e);
       }
     }
-  }, [navigate]);
+  }, [user, navigate]);
 
   const fetchOrders = async () => {
-    setLoading(true);
-    setError("");
+    try {
+      setLoading(true);
+      setError("");
 
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const userData = JSON.parse(user);
-
-    const { data, error: err } = await apiCall(() =>
-      API.get(`/orders/${userData.role}`)
-    );
-
-    if (err) {
-      setError(err);
-      setOrders([]);
-      setSalesOrders([]);
-    } else {
-      if (userData.role === "farmer") {
-        const allOrders = data?.sales || [];
-        const allPurchases = data?.purchases || [];
-
-        // Filter orders based on current user's role
-        const mySales = allOrders.filter(order =>
-          order.sellerId && order.sellerId.toString() === userData._id
-        );
-
-        const myPurchases = allPurchases.filter(order =>
-          order.buyerId && order.buyerId.toString() === userData._id
-        );
-
-        setSalesOrders(mySales);
-        setOrders(myPurchases);
-        calculateStats(myPurchases, mySales);
-      } else {
-        setOrders(data || []);
-        setSalesOrders([]);
-        calculateStats(data || [], []);
+      const userData = user ? JSON.parse(user) : null;
+      let endpoint = "/orders/my-orders";
+      
+      if (userData?.role === "farmer") {
+        endpoint = "/orders/farmer";
       }
-    }
 
-    setLoading(false);
+      const { data, error: err } = await apiCall(() => API.get(endpoint));
+      
+      if (err) {
+        setError("Failed to load orders");
+        setLoading(false);
+        return;
+      }
+
+      let allOrders = [];
+      let salesList = [];
+      
+      if (Array.isArray(data)) {
+        allOrders = data;
+      } else if (data && typeof data === "object") {
+        const purchases = data.purchases || [];
+        salesList = data.sales || [];
+        allOrders = purchases;
+        setSalesOrders(salesList);
+      }
+
+      setOrders(allOrders);
+      calculateStats(allOrders, salesList);
+    } catch (e) {
+      console.error("Error in fetchOrders:", e);
+      setError("Failed to load orders");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const calculateStats = (ordersData, salesData = []) => {
-    const allOrders = [...ordersData, ...salesData];
-    const newStats = {
-      total: allOrders.length,
-      pending: allOrders.filter(o => o.status?.toLowerCase() === "pending").length,
-      confirmed: allOrders.filter(o => o.status?.toLowerCase() === "confirmed").length,
-      delivered: allOrders.filter(o => o.status?.toLowerCase() === "delivered").length,
-      revenue: allOrders
-        .filter(o => o.status?.toLowerCase() === "delivered")
-        .reduce((sum, o) => sum + (o.total || 0), 0)
-    };
-    setStats(newStats);
+  const calculateStats = (purchaseList, salesList = []) => {
+    const totalOrders = purchaseList.length;
+    const pendingOrders = purchaseList.filter(o => o.status === "pending" || o.status === "processing").length;
+    const confirmedOrders = purchaseList.filter(o => o.status === "confirmed" || o.status === "shipped").length;
+    const deliveredOrders = purchaseList.filter(o => o.status === "delivered").length;
+    
+    const revenue = salesList.reduce((sum, order) => sum + (order.total || 0), 0);
+
+    setStats({
+      total: totalOrders,
+      pending: pendingOrders,
+      confirmed: confirmedOrders,
+      delivered: deliveredOrders,
+      revenue
+    });
   };
 
   const filteredOrders = filter === "all"
@@ -123,7 +137,7 @@ export default function Orders() {
       case "confirmed":
         return "#4caf50";
       case "delivered":
-        return "#4caf50";
+        return "#2e7d32";
       case "pending":
         return "#ff9800";
       case "cancelled":
@@ -135,20 +149,20 @@ export default function Orders() {
     }
   };
 
-  const getStatusIcon = (status) => {
+  const renderStatusIcon = (status) => {
     switch (status?.toLowerCase()) {
       case "confirmed":
-        return "✅";
+        return <CheckCircle2 size={14} />;
       case "delivered":
-        return "🎉";
+        return <PartyPopper size={14} />;
       case "pending":
-        return "⏳";
+        return <Clock size={14} />;
       case "cancelled":
-        return "❌";
+        return <XCircle size={14} />;
       case "out for delivery":
-        return "🚚";
+        return <Truck size={14} />;
       default:
-        return "📦";
+        return <Package size={14} />;
     }
   };
 
@@ -202,11 +216,13 @@ export default function Orders() {
       <div className="page-header" style={{ marginBottom: isMobile ? "24px" : "32px" }}>
         <h1 style={{ 
           fontSize: isMobile ? "24px" : "32px",
-          marginBottom: isMobile ? "8px" : "16px"
+          marginBottom: isMobile ? "8px" : "16px",
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '12px'
         }}>
-          {currentUser?.role === "farmer"
-            ? "🛒 My Orders"
-            : "📦 My Orders"}
+          <Package size={32} color="var(--primary-blue)" />
+          <span>My Orders</span>
         </h1>
         <p style={{ 
           fontSize: isMobile ? "14px" : "16px",
@@ -243,7 +259,7 @@ export default function Orders() {
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>📊</div>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px", display: "flex", justifyContent: "center" }}><Package size={isMobile ? 28 : 32} /></div>
           <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
             {stats.total}
           </div>
@@ -264,7 +280,7 @@ export default function Orders() {
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>⏳</div>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px", display: "flex", justifyContent: "center" }}><Clock size={isMobile ? 28 : 32} color="#ff9800" /></div>
           <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#ff9800" }}>
             {stats.pending}
           </div>
@@ -285,7 +301,7 @@ export default function Orders() {
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>✅</div>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px", display: "flex", justifyContent: "center" }}><CheckCircle2 size={isMobile ? 28 : 32} color="#4caf50" /></div>
           <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#4caf50" }}>
             {stats.confirmed}
           </div>
@@ -306,7 +322,7 @@ export default function Orders() {
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>🚚</div>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px", display: "flex", justifyContent: "center" }}><Truck size={isMobile ? 28 : 32} color="#2196f3" /></div>
           <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "#2196f3" }}>
             {stats.delivered}
           </div>
@@ -327,7 +343,7 @@ export default function Orders() {
           e.currentTarget.style.transform = "translateY(0)";
           e.currentTarget.style.boxShadow = "none";
         }}>
-          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px" }}>💰</div>
+          <div style={{ fontSize: isMobile ? "28px" : "32px", marginBottom: "8px", display: "flex", justifyContent: "center" }}><IndianRupee size={isMobile ? 28 : 32} color="var(--primary-green)" /></div>
           <div style={{ fontSize: isMobile ? "20px" : "24px", fontWeight: "bold", color: "var(--primary-green)" }}>
             ₹{stats.revenue.toLocaleString('en-IN')}
           </div>
@@ -347,49 +363,66 @@ export default function Orders() {
           className={`btn ${filter === "all" ? "btn-primary" : "btn-secondary"}`}
           style={{ 
             fontSize: isMobile ? "12px" : "14px", 
-            padding: isMobile ? "8px 16px" : "10px 20px"
+            padding: isMobile ? "8px 16px" : "10px 20px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px"
           }}
         >
-          📋 All Orders
+          <ClipboardList size={16} />
+          <span>All Orders</span>
         </button>
         <button
           onClick={() => setFilter("pending")}
           className={`btn ${filter === "pending" ? "btn-primary" : "btn-secondary"}`}
           style={{ 
             fontSize: isMobile ? "12px" : "14px", 
-            padding: isMobile ? "8px 16px" : "10px 20px"
+            padding: isMobile ? "8px 16px" : "10px 20px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px"
           }}
         >
-          ⏳ Pending
+          <Clock size={16} />
+          <span>Pending</span>
         </button>
         <button
           onClick={() => setFilter("confirmed")}
           className={`btn ${filter === "confirmed" ? "btn-primary" : "btn-secondary"}`}
           style={{ 
             fontSize: isMobile ? "12px" : "14px", 
-            padding: isMobile ? "8px 16px" : "10px 20px"
+            padding: isMobile ? "8px 16px" : "10px 20px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px"
           }}
         >
-          ✅ Confirmed
+          <CheckCircle2 size={16} />
+          <span>Confirmed</span>
         </button>
         <button
           onClick={() => setFilter("delivered")}
           className={`btn ${filter === "delivered" ? "btn-primary" : "btn-secondary"}`}
           style={{ 
             fontSize: isMobile ? "12px" : "14px", 
-            padding: isMobile ? "8px 16px" : "10px 20px"
+            padding: isMobile ? "8px 16px" : "10px 20px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px"
           }}
         >
-          🚚 Delivered
+          <Truck size={16} />
+          <span>Delivered</span>
         </button>
       </div>
 
       {currentUser?.role === "farmer" ? (
         <div className="grid" style={{ gap: "32px" }}>
-          {/* 🌾 SALES */}
+          {/* SALES */}
           <div>
-            <h2 style={{ marginBottom: "20px", color: "#2e7d32" }}>
-              🌾 My Crop Sales
+            <h2 style={{ marginBottom: "20px", color: "#2e7d32", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <Sprout size={24} color="#2e7d32" />
+              <span>My Crop Sales</span>
               <span style={{ fontSize: "14px", color: "#666", fontWeight: "normal", marginLeft: "8px" }}>
                 ({filteredSalesOrders.length} orders)
               </span>
@@ -397,13 +430,16 @@ export default function Orders() {
 
             {filteredSalesOrders.length === 0 ? (
               <div className="card" style={{ textAlign: "center", padding: "40px" }}>
-                <div style={{ fontSize: "48px", marginBottom: "16px" }}>🌾</div>
+                <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+                  <Sprout size={48} color="#2e7d32" />
+                </div>
                 <h4>No Crop Sales Yet</h4>
                 <p style={{ color: "#666", marginBottom: "16px" }}>
                   Your crop sales will appear here when customers buy your crops
                 </p>
-                <Link to="/manage-crops" className="btn btn-primary">
-                  Manage Crops
+                <Link to="/manage-crops" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <Sprout size={16} />
+                  <span>Manage Crops</span>
                 </Link>
               </div>
             ) : (
@@ -469,10 +505,9 @@ export default function Orders() {
                             alignItems: "center",
                             justifyContent: "center",
                             background: "var(--background)",
-                            border: "1px solid var(--border-color)",
-                            fontSize: isMobile ? "20px" : "24px"
+                            border: "1px solid var(--border-color)"
                           }}>
-                            🌾
+                            <Sprout size={isMobile ? 24 : 28} color="var(--primary-green)" />
                           </div>
                         )}
                         <div style={{ flex: 1 }}>
@@ -514,9 +549,12 @@ export default function Orders() {
                           color: "white",
                           borderRadius: "12px",
                           fontSize: isMobile ? "10px" : "12px",
-                          fontWeight: "600"
+                          fontWeight: "600",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
                         }}>
-                          {getStatusIcon(order.status)} {order.status}
+                          {renderStatusIcon(order.status)} <span>{order.status}</span>
                         </span>
                       </div>
                     </div>
@@ -548,17 +586,23 @@ export default function Orders() {
                         <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment:</span>
                           <strong style={{
-                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
                           }}>
-                            {order.paymentMethod === "ONLINE" ? "✅ Online" : "⏳ COD"}
+                            {order.paymentMethod === "ONLINE" ? <><CheckCircle2 size={14} /><span>Online</span></> : <><Clock size={14} /><span>COD</span></>}
                           </strong>
                         </div>
                         <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment Status:</span>
                           <strong style={{
-                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
                           }}>
-                            {order.paymentMethod === "ONLINE" ? "✅ Done" : "⏳ Pending"}
+                            {order.paymentMethod === "ONLINE" ? <><CheckCircle2 size={14} /><span>Done</span></> : <><Clock size={14} /><span>Pending</span></>}
                           </strong>
                         </div>
                         <div>
@@ -574,16 +618,18 @@ export default function Orders() {
                       <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        💬 Chat
+                        <MessageSquare size={14} />
+                        <span>Chat</span>
                       </Link>
                       <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        📍 Track
+                        <MapPin size={14} />
+                        <span>Track</span>
                       </Link>
                     </div>
                   </div>
@@ -592,10 +638,11 @@ export default function Orders() {
             )}
           </div>
 
-          {/* 🛒 PURCHASES */}
+          {/* PURCHASES */}
           <div>
-            <h2 style={{ marginBottom: "20px", color: "#f57c00" }}>
-              🛒 My Purchase Orders
+            <h2 style={{ marginBottom: "20px", color: "#f57c00", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <ShoppingCart size={24} color="#f57c00" />
+              <span>My Purchase Orders</span>
               <span style={{ fontSize: "14px", color: "#666", fontWeight: "normal", marginLeft: "8px" }}>
                 ({filteredOrders.length} orders)
               </span>
@@ -603,13 +650,16 @@ export default function Orders() {
 
             {filteredOrders.length === 0 ? (
               <div className="card" style={{ textAlign: "center", padding: "40px" }}>
-                <div style={{ fontSize: "48px", marginBottom: "16px" }}>🛒</div>
+                <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+                  <ShoppingCart size={48} color="#f57c00" />
+                </div>
                 <h4>No Purchase Orders Yet</h4>
                 <p style={{ color: "#666", marginBottom: "16px" }}>
                   Your product purchases will appear here
                 </p>
-                <Link to="/products" className="btn btn-primary">
-                  Browse Products
+                <Link to="/products" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <ShoppingBag size={16} />
+                  <span>Browse Products</span>
                 </Link>
               </div>
             ) : (
@@ -635,15 +685,7 @@ export default function Orders() {
                               border: "1px solid var(--border-color)"
                             }}
                             onError={(e) => {
-                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" :
-                                order.items?.[0]?.itemType === "seed" ? "🌱" :
-                                  order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
                               e.target.style.display = "none";
-                              const parent = e.target.parentElement;
-                              const fallback = document.createElement("div");
-                              fallback.style.cssText = "width: 60px; height: 60px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center; background: var(--background); border: 1px solid var(--border-color); font-size: 24px;";
-                              fallback.textContent = icon;
-                              parent.replaceChild(fallback, e.target);
                             }}
                           />
                         )}
@@ -656,10 +698,9 @@ export default function Orders() {
                             alignItems: "center",
                             justifyContent: "center",
                             background: "var(--background)",
-                            border: "1px solid var(--border-color)",
-                            fontSize: "24px"
+                            border: "1px solid var(--border-color)"
                           }}>
-                            🛒
+                            <ShoppingCart size={28} color="var(--primary-blue)" />
                           </div>
                         )}
                         <div>
@@ -700,9 +741,12 @@ export default function Orders() {
                           color: "white",
                           borderRadius: "12px",
                           fontSize: "12px",
-                          fontWeight: "600"
+                          fontWeight: "600",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
                         }}>
-                          {getStatusIcon(order.status)} {order.status}
+                          {renderStatusIcon(order.status)} <span>{order.status}</span>
                         </span>
                       </div>
                     </div>
@@ -734,17 +778,23 @@ export default function Orders() {
                         <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment:</span>
                           <strong style={{
-                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
                           }}>
-                            {order.paymentMethod === "ONLINE" ? "✅ Online" : "⏳ COD"}
+                            {order.paymentMethod === "ONLINE" ? <><CheckCircle2 size={14} /><span>Online</span></> : <><Clock size={14} /><span>COD</span></>}
                           </strong>
                         </div>
                         <div>
                           <span style={{ color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>Payment Status:</span>
                           <strong style={{
-                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)"
+                            color: order.paymentMethod === "ONLINE" ? "var(--success)" : "var(--warning)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
                           }}>
-                            {order.paymentMethod === "ONLINE" ? "✅ Done" : "⏳ Pending"}
+                            {order.paymentMethod === "ONLINE" ? <><CheckCircle2 size={14} /><span>Done</span></> : <><Clock size={14} /><span>Pending</span></>}
                           </strong>
                         </div>
                         <div>
@@ -760,16 +810,18 @@ export default function Orders() {
                       <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        💬 Chat
+                        <MessageSquare size={14} />
+                        <span>Chat</span>
                       </Link>
                       <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        📍 Track
+                        <MapPin size={14} />
+                        <span>Track</span>
                       </Link>
                     </div>
                   </div>
@@ -782,8 +834,10 @@ export default function Orders() {
         <div className="grid" style={{ gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
           <div>
             {filteredOrders.length === 0 ? (
-              <div className="empty-state card">
-                <div style={{ fontSize: "64px", marginBottom: "16px" }}>📦</div>
+              <div className="empty-state card" style={{ textAlign: "center", padding: "40px" }}>
+                <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+                  <Package size={64} color="#ccc" />
+                </div>
                 <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>
                   No {filter === "all" ? "" : filter} orders yet
                 </h3>
@@ -794,11 +848,13 @@ export default function Orders() {
                   }
                 </p>
                 <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "24px" }}>
-                  <Link to="/crops" className="btn btn-primary">
-                    Browse Crops
+                  <Link to="/crops" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <Sprout size={16} />
+                    <span>Browse Crops</span>
                   </Link>
-                  <Link to="/products" className="btn btn-secondary">
-                    Browse Products
+                  <Link to="/products" className="btn btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <ShoppingBag size={16} />
+                    <span>Browse Products</span>
                   </Link>
                 </div>
               </div>
@@ -825,15 +881,7 @@ export default function Orders() {
                               border: "1px solid var(--border-color)"
                             }}
                             onError={(e) => {
-                              const icon = order.items?.[0]?.itemType === "crop" ? "🌾" :
-                                order.items?.[0]?.itemType === "seed" ? "🌱" :
-                                  order.items?.[0]?.itemType === "pesticide" ? "🧪" : "🛒";
                               e.target.style.display = "none";
-                              const parent = e.target.parentElement;
-                              const fallback = document.createElement("div");
-                              fallback.style.cssText = "width: 60px; height: 60px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center; background: var(--background); border: 1px solid var(--border-color); font-size: 24px;";
-                              fallback.textContent = icon;
-                              parent.replaceChild(fallback, e.target);
                             }}
                           />
                         )}
@@ -846,10 +894,9 @@ export default function Orders() {
                             alignItems: "center",
                             justifyContent: "center",
                             background: "var(--background)",
-                            border: "1px solid var(--border-color)",
-                            fontSize: "24px"
+                            border: "1px solid var(--border-color)"
                           }}>
-                            📦
+                            <Package size={28} color="var(--primary-blue)" />
                           </div>
                         )}
                         <div>
@@ -890,9 +937,12 @@ export default function Orders() {
                           color: "white",
                           borderRadius: "12px",
                           fontSize: "12px",
-                          fontWeight: "600"
+                          fontWeight: "600",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px"
                         }}>
-                          {getStatusIcon(order.status)} {order.status}
+                          {renderStatusIcon(order.status)} <span>{order.status}</span>
                         </span>
                       </div>
                     </div>
@@ -934,16 +984,18 @@ export default function Orders() {
                       <Link
                         to={`/orders/${order._id}/communication`}
                         className="btn btn-primary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        💬 Chat
+                        <MessageSquare size={14} />
+                        <span>Chat</span>
                       </Link>
                       <Link
                         to={`/tracking/${order._id}`}
                         className="btn btn-secondary"
-                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                        style={{ fontSize: "12px", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
                       >
-                        📍 Track
+                        <MapPin size={14} />
+                        <span>Track</span>
                       </Link>
                     </div>
                   </div>
@@ -951,8 +1003,6 @@ export default function Orders() {
               </div>
             )}
           </div>
-
-
         </div>
       )}
     </div>

@@ -3,6 +3,13 @@ import { Link } from "react-router-dom";
 import API from "../api/api";
 import { apiCall } from "../api/api";
 import { useCart } from "../context/CartContext";
+import {
+  Sprout,
+  Lightbulb,
+  PlusCircle,
+  CheckCircle2,
+  ShoppingCart
+} from "lucide-react";
 
 export default function CropList() {
   const [crops, setCrops] = useState([]);
@@ -14,7 +21,6 @@ export default function CropList() {
   const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
   useEffect(() => {
-    // Get current user from localStorage
     const user = localStorage.getItem("user");
     if (user) {
       try {
@@ -29,20 +35,17 @@ export default function CropList() {
     setLoading(true);
     setError("");
     
-    // Get all crops first
     const { data, error: err } = await apiCall(() => API.get("/crops"));
     
     if (err) {
       setError(err);
     } else {
-      // Filter out current farmer's own crops
       let filteredCrops = data || [];
       const user = localStorage.getItem("user");
       if (user) {
         try {
           const userData = JSON.parse(user);
           if (userData.role === "farmer" && userData._id) {
-            // Filter out crops belonging to the current farmer
             filteredCrops = filteredCrops.filter(crop => 
               !crop.sellerId || crop.sellerId.toString() !== userData._id
             );
@@ -59,7 +62,6 @@ export default function CropList() {
 
   useEffect(() => {
     fetchCrops();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?._id]);
 
   if (loading) {
@@ -74,11 +76,15 @@ export default function CropList() {
   return (
     <div className="container" style={{ paddingTop: "40px", paddingBottom: "40px" }}>
       <div className="page-header">
-        <h1>🌾 Crop Marketplace</h1>
+        <h1 style={{ display: "inline-flex", alignItems: "center", gap: "12px" }}>
+          <Sprout size={32} color="var(--primary-green)" />
+          <span>Crop Marketplace</span>
+        </h1>
         <p>Browse and purchase fresh crops from other farmers</p>
         {currentUser?.role === "farmer" && (
-          <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
-            💡 Your own crops are managed in <Link to="/manage-crops" style={{ color: "var(--primary-green)" }}>Manage Crops</Link>
+          <p style={{ fontSize: "14px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px", marginTop: "8px" }}>
+            <Lightbulb size={16} color="#ffc107" />
+            <span>Your own crops are managed in <Link to="/manage-crops" style={{ color: "var(--primary-green)", fontWeight: "600" }}>Manage Crops</Link></span>
           </p>
         )}
       </div>
@@ -86,18 +92,22 @@ export default function CropList() {
       {error && <div className="error-message">{error}</div>}
 
       {crops.length === 0 ? (
-        <div className="empty-state card">
-          <div style={{ fontSize: "64px", marginBottom: "16px" }}>🌾</div>
+        <div className="empty-state card" style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+            <Sprout size={64} color="var(--primary-green)" />
+          </div>
           <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>No crops available</h3>
           <p style={{ color: "var(--text-secondary)" }}>Check back later for fresh crops from farmers</p>
           {currentUser?.role === "farmer" && (
-            <div style={{ marginTop: "16px" }}>
-              <Link to="/add-crop" className="btn btn-primary">
-                🌾 Add Your Crops
+            <div style={{ marginTop: "20px", display: "flex", gap: "12px", justifyContent: "center", alignItems: "center" }}>
+              <Link to="/add-crop" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <PlusCircle size={16} />
+                <span>Add Your Crops</span>
               </Link>
-              <span style={{ margin: "0 8px", color: "var(--text-muted)" }}>or</span>
-              <Link to="/manage-crops" className="btn btn-outline">
-                📋 Manage Your Crops
+              <span style={{ color: "var(--text-muted)" }}>or</span>
+              <Link to="/manage-crops" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <Sprout size={16} />
+                <span>Manage Your Crops</span>
               </Link>
             </div>
           )}
@@ -132,8 +142,6 @@ export default function CropList() {
                         display: "block"
                       }}
                       onError={(e) => {
-                        console.error("Failed to load crop image:", crop.image, "Full URL:", `${STATIC_BASE_URL}${crop.image}`);
-                        // Hide the broken image and show fallback
                         e.target.style.display = "none";
                         const parent = e.target.parentElement;
                         if (parent) {
@@ -142,12 +150,8 @@ export default function CropList() {
                           parent.style.alignItems = "center";
                           parent.style.justifyContent = "center";
                           parent.style.color = "white";
-                          parent.style.fontSize = "64px";
-                          parent.innerHTML = "🌾";
+                          parent.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4.2.8-4.9 2z"/></svg>';
                         }
-                      }}
-                      onLoad={() => {
-                        console.log("Crop image loaded successfully:", crop.image);
                       }}
                     />
                   ) : (
@@ -158,9 +162,9 @@ export default function CropList() {
                       alignItems: "center",
                       justifyContent: "center",
                       background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
-                      fontSize: "64px"
+                      color: "white"
                     }}>
-                      🌾
+                      <Sprout size={48} color="white" />
                     </div>
                   )}
                 </div>
@@ -184,11 +188,13 @@ export default function CropList() {
                         borderRadius: "12px",
                         fontWeight: "500",
                         display: "inline-flex",
-                        alignItems: "center"
+                        alignItems: "center",
+                        gap: "4px"
                       }}
                       title="Verified Crop"
                     >
-                      ✓ Verified
+                      <CheckCircle2 size={12} />
+                      <span>Verified</span>
                     </span>
                   )}
                 </h3>

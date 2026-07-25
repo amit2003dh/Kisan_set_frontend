@@ -44,11 +44,11 @@ function AppContent() {
       {showNavbar && <Navbar />}
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/farmer" element={<FarmerDashboard />} />
-        <Route path="/seller" element={<SellerDashboard />} />
-        <Route path="/buyer" element={<BuyerDashboard />} />
-        <Route path="/delivery-partner" element={<DeliveryPartnerDashboard />} />
-        <Route path="/delivery-partner/register" element={<DeliveryPartnerRegistration />} />
+        <Route path="/farmer" element={<ProtectedRoute requiredRole="farmer"><FarmerDashboard /></ProtectedRoute>} />
+        <Route path="/seller" element={<ProtectedRoute requiredRole="seller"><SellerDashboard /></ProtectedRoute>} />
+        <Route path="/buyer" element={<ProtectedRoute requiredRole="buyer"><BuyerDashboard /></ProtectedRoute>} />
+        <Route path="/delivery-partner" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerDashboard /></ProtectedRoute>} />
+        <Route path="/delivery-partner/register" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerRegistration /></ProtectedRoute>} />
         <Route path="/delivery-partner/orders" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryPartnerOrders /></ProtectedRoute>} />
         <Route path="/delivery-partner/queue" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryQueue /></ProtectedRoute>} />
         <Route path="/delivery/:deliveryId" element={<ProtectedRoute requiredRole="delivery_partner"><DeliveryDetails /></ProtectedRoute>} />

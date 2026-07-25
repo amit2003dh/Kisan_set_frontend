@@ -1,5 +1,21 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Stethoscope,
+  Camera,
+  Search,
+  RefreshCw,
+  AlertTriangle,
+  BarChart3,
+  Microscope,
+  ClipboardList,
+  ShieldCheck,
+  ShoppingBag,
+  Sprout,
+  FileText,
+  X
+} from 'lucide-react';
 import './CropDoctor.css';
 
 export default function CropDoctor() {
@@ -77,7 +93,7 @@ export default function CropDoctor() {
         setAnalysisResult(null);
         setError(null);
       } else {
-        setError('Please select a valid image file');
+        setError('Please drop a valid image file');
       }
     }
   };
@@ -91,43 +107,82 @@ export default function CropDoctor() {
     setIsAnalyzing(true);
     setError(null);
 
-    try {
-      const formData = new FormData();
-      formData.append('image', selectedImage);
+    const formData = new FormData();
+    formData.append('image', selectedImage);
 
-      // Call backend API for crop analysis
-      const response = await fetch(`${API_BASE_URL}/crop-analysis`, {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/ai/crop-doctor`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       });
 
       const data = await response.json();
-      
-      if (data.result) {
-        setAnalysisResult(data.result);
-        
-        // Add to analysis history
+
+      if (response.ok) {
+        const raw = data.data || data;
+        const diseaseLower = (raw.disease || "").toLowerCase();
+        const isNoCrop = diseaseLower.includes("no crop") || diseaseLower.includes("not a crop") || diseaseLower.includes("no plant") || diseaseLower.includes("unknown") || diseaseLower === "n/a";
+        const isHealthy = diseaseLower.includes("healthy") || raw.healthy === true;
+
+        let recommendations = [];
+        if (isNoCrop) {
+          recommendations = ["No crop or plant detected in the uploaded image. Please upload a clear, close-up photo of a plant leaf, stem, or crop."];
+        } else if (isHealthy) {
+          recommendations = ["Your crop appears healthy! Continue standard irrigation, balanced fertilization, and regular field monitoring."];
+        } else if (Array.isArray(raw.recommendations) && raw.recommendations.length > 0 && !raw.recommendations.includes("N/A")) {
+          recommendations = raw.recommendations;
+        } else if (typeof raw.treatment === 'string' && raw.treatment.trim() && raw.treatment !== "N/A") {
+          recommendations = raw.treatment.split(/[\n.]+/).map(s => s.trim()).filter(Boolean);
+        } else if (Array.isArray(raw.treatment) && raw.treatment.length > 0) {
+          recommendations = raw.treatment;
+        } else {
+          recommendations = ["Apply recommended agricultural treatments as advised by local expert."];
+        }
+
+        let preventionTips = [];
+        if (isNoCrop) {
+          preventionTips = ["To receive an accurate diagnosis, upload a focused, high-resolution photo showing the affected plant parts."];
+        } else if (Array.isArray(raw.preventionTips) && raw.preventionTips.length > 0 && !raw.preventionTips.includes("N/A")) {
+          preventionTips = raw.preventionTips;
+        } else if (typeof raw.prevention === 'string' && raw.prevention.trim() && raw.prevention !== "N/A") {
+          preventionTips = raw.prevention.split(/[\n.]+/).map(s => s.trim()).filter(Boolean);
+        } else if (Array.isArray(raw.prevention) && raw.prevention.length > 0) {
+          preventionTips = raw.prevention;
+        } else {
+          preventionTips = ["Ensure proper soil drainage, crop rotation, and regular monitoring."];
+        }
+
+        const normalized = {
+          ...raw,
+          isNoCrop,
+          isHealthy,
+          severity: isNoCrop ? "N/A" : isHealthy ? "Healthy" : (raw.severity || "Moderate"),
+          spreadRisk: (isNoCrop || isHealthy) ? "N/A" : (raw.spreadRisk || "Medium"),
+          treatmentCost: (isNoCrop || isHealthy) ? "N/A" : (raw.treatmentCost && raw.treatmentCost !== "N/A" ? raw.treatmentCost : "₹200 - ₹500"),
+          recommendations,
+          preventionTips
+        };
+
+        setAnalysisResult(normalized);
         const historyItem = {
           id: Date.now(),
-          timestamp: new Date().toLocaleString(),
-          disease: data.result.disease,
-          severity: data.result.severity,
-          confidence: data.result.confidence,
-          imagePreview: imagePreview
+          timestamp: new Date().toLocaleDateString(),
+          imagePreview: imagePreview,
+          disease: normalized.disease,
+          severity: normalized.severity,
+          confidence: normalized.confidence
         };
-        setAnalysisHistory(prev => [historyItem, ...prev].slice(0, 10));
-        
-      } else if (data.error) {
-        setError(data.error);
-      }
-      
-    } catch (err) {
-      console.error('Analysis error:', err);
-      if (err.message.includes('fetch')) {
-        setError('Unable to connect to analysis server. Please ensure the backend server is running on localhost:5000');
+        setAnalysisHistory(prev => [historyItem, ...prev.slice(0, 4)]);
       } else {
-        setError('Failed to analyze the crop image. Please try again.');
+        setError(data.message || 'Analysis failed. Please try again.');
       }
+    } catch (err) {
+      console.error('Crop analysis error:', err);
+      setError('Failed to connect to analysis service. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -144,43 +199,33 @@ export default function CropDoctor() {
   };
 
   const downloadPDFReport = async () => {
-    console.log('PDF download attempted, analysisResult:', analysisResult);
-    if (!analysisResult) {
-      setError('No analysis result available for download');
-      return;
-    }
+    if (!analysisResult) return;
 
     try {
-      console.log('Making PDF download request...');
-      const response = await fetch('http://localhost:5000/api/crop-analysis/download-crop-report', {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/crops/download-pdf-report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          result: analysisResult,
-          image: imagePreview
-        }),
+          analysisData: analysisResult,
+          imagePreview: imagePreview
+        })
       });
-
-      console.log('PDF response status:', response.status);
-      console.log('PDF response headers:', response.headers);
 
       if (response.ok) {
         const blob = await response.blob();
-        console.log('PDF blob size:', blob.size);
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
+        a.style.display = 'none';
         a.href = url;
-        a.download = `Crop_Analysis_Report_${Date.now()}.pdf`;
+        a.download = `CropDoctor_Report_${analysisResult.disease?.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
         document.body.appendChild(a);
         a.click();
-        a.remove();
         window.URL.revokeObjectURL(url);
-        console.log('PDF download completed');
       } else {
-        const errorText = await response.text();
-        console.error('PDF download failed:', response.status, errorText);
         setError('Failed to generate PDF report');
       }
     } catch (err) {
@@ -190,26 +235,31 @@ export default function CropDoctor() {
   };
 
   const getSeverityColor = (severity) => {
+    if (analysisResult?.isNoCrop || severity === 'N/A') return '#ed6c02';
+    if (analysisResult?.isHealthy || severity === 'Healthy') return '#2e7d32';
     switch (severity?.toLowerCase()) {
-      case 'severe': return '#f44336';
-      case 'moderate': return '#ff9800';
-      case 'mild': return '#ffc107';
-      case 'healthy': return '#4caf50';
-      default: return '#2196f3';
+      case 'severe': case 'high': return '#d32f2f';
+      case 'moderate': case 'medium': return '#ed6c02';
+      case 'mild': case 'low': return '#0288d1';
+      default: return '#64748b';
     }
   };
 
   const getHealthStatus = () => {
     if (!analysisResult) return null;
-    return analysisResult.healthy ? 'Healthy' : 'Disease Detected';
+    if (analysisResult.isNoCrop) return 'No Crop Detected';
+    if (analysisResult.isHealthy) return 'Healthy Crop';
+    return 'Disease Detected';
   };
 
   const getSpreadRiskColor = (risk) => {
+    if (analysisResult?.isNoCrop || risk === 'N/A') return '#64748b';
+    if (analysisResult?.isHealthy) return '#2e7d32';
     switch (risk?.toLowerCase()) {
-      case 'high': return '#f44336';
-      case 'medium': return '#ff9800';
-      case 'low': return '#4caf50';
-      default: return '#2196f3';
+      case 'high': case 'severe': return '#d32f2f';
+      case 'medium': case 'moderate': return '#ed6c02';
+      case 'low': case 'mild': return '#2e7d32';
+      default: return '#64748b';
     }
   };
 
@@ -219,10 +269,15 @@ export default function CropDoctor() {
         <button 
           onClick={() => navigate(-1)}
           className="back-button"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          ← Back
+          <ArrowLeft size={18} />
+          <span>Back</span>
         </button>
-        <h1>🌾 Crop Doctor</h1>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <Stethoscope size={36} color="#2e7d32" />
+          <span>Crop Doctor</span>
+        </h1>
         <p>Advanced AI-powered crop disease detection and treatment recommendations</p>
       </div>
 
@@ -240,12 +295,14 @@ export default function CropDoctor() {
                   onClick={resetAnalysis}
                   className="remove-image-btn"
                 >
-                  ×
+                  <X size={18} />
                 </button>
               </div>
             ) : (
               <div className="upload-placeholder">
-                <div className="upload-icon">📸</div>
+                <div className="upload-icon" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <Camera size={48} color="#2e7d32" />
+                </div>
                 <h3>Upload Crop Image</h3>
                 <p>Drag & drop or click to upload a clear photo of the affected crop</p>
                 <input
@@ -256,8 +313,9 @@ export default function CropDoctor() {
                   style={{ display: 'none' }}
                   id="crop-image-upload"
                 />
-                <label htmlFor="crop-image-upload" className="upload-button">
-                  Choose Image
+                <label htmlFor="crop-image-upload" className="upload-button" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Camera size={18} />
+                  <span>Choose Image</span>
                 </label>
               </div>
             )}
@@ -269,21 +327,26 @@ export default function CropDoctor() {
                 onClick={analyzeCrop}
                 disabled={isAnalyzing}
                 className="analyze-button"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                {isAnalyzing ? 'Analyzing...' : '🔍 Analyze Crop'}
+                <Search size={18} />
+                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Crop'}</span>
               </button>
               <button
                 onClick={resetAnalysis}
                 className="reset-button"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                🔄 Reset
+                <RefreshCw size={18} />
+                <span>Reset</span>
               </button>
             </div>
           )}
 
           {error && (
-            <div className="error-message">
-              ⚠️ {error}
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} color="#d32f2f" />
+              <span>{error}</span>
             </div>
           )}
         </div>
@@ -295,8 +358,10 @@ export default function CropDoctor() {
               <button 
                 onClick={() => setShowHistory(!showHistory)}
                 className="history-toggle-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                📊 {showHistory ? 'Hide' : 'Show'} History
+                <BarChart3 size={16} />
+                <span>{showHistory ? 'Hide' : 'Show'} History</span>
               </button>
             </div>
             
@@ -308,19 +373,24 @@ export default function CropDoctor() {
                 {getHealthStatus()}
               </div>
               <div className="confidence-score">
-                Confidence: {(analysisResult.confidence * 100).toFixed(1)}%
+                Confidence: {typeof analysisResult.confidence === 'number' ? (analysisResult.confidence * 100).toFixed(1) + '%' : analysisResult.confidence || 'High'}
               </div>
             </div>
 
             <div className="disease-details">
-              <h3>🔬 Disease Information</h3>
-              <div className="disease-info">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Microscope size={20} color="#2d6a4f" />
+                <span>{analysisResult.isNoCrop ? "Image Diagnostics" : analysisResult.isHealthy ? "Health Assessment" : "Disease Information"}</span>
+              </h3>
+              <div className="disease-info" style={{ borderLeftColor: getSeverityColor(analysisResult.severity) }}>
                 <h4>{analysisResult.disease}</h4>
                 <div className="disease-meta">
-                  <div className="meta-item">
-                    <span>Crop Type:</span>
-                    <strong>{analysisResult.cropType}</strong>
-                  </div>
+                  {analysisResult.cropType && (
+                    <div className="meta-item">
+                      <span>Crop Type:</span>
+                      <strong>{analysisResult.cropType}</strong>
+                    </div>
+                  )}
                   <div className="meta-item">
                     <span>Severity:</span>
                     <span 
@@ -330,10 +400,12 @@ export default function CropDoctor() {
                       {analysisResult.severity}
                     </span>
                   </div>
-                  <div className="meta-item">
-                    <span>Affected Area:</span>
-                    <strong>{analysisResult.affectedArea}</strong>
-                  </div>
+                  {analysisResult.affectedArea && (
+                    <div className="meta-item">
+                      <span>Affected Area:</span>
+                      <strong>{analysisResult.affectedArea}</strong>
+                    </div>
+                  )}
                   <div className="meta-item">
                     <span>Spread Risk:</span>
                     <span 
@@ -345,38 +417,47 @@ export default function CropDoctor() {
                   </div>
                   <div className="meta-item">
                     <span>Treatment Cost:</span>
-                    <strong>{analysisResult.treatmentCost}</strong>
+                    <strong>{analysisResult.treatmentCost || "N/A"}</strong>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="recommendations">
-              <h3>📋 Treatment Recommendations</h3>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClipboardList size={20} color="#2e7d32" />
+                <span>{analysisResult.isNoCrop ? "Detection Guidance" : analysisResult.isHealthy ? "Crop Care Advice" : "Treatment Recommendations"}</span>
+              </h3>
               <ul>
-                {analysisResult.recommendations.map((rec, index) => (
+                {(analysisResult.recommendations || []).map((rec, index) => (
                   <li key={index}>{rec}</li>
                 ))}
               </ul>
             </div>
 
             <div className="prevention-tips">
-              <h3>🛡️ Prevention Tips</h3>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={20} color="#2e7d32" />
+                <span>Prevention Tips</span>
+              </h3>
               <ul>
-                {analysisResult.preventionTips.map((tip, index) => (
+                {(analysisResult.preventionTips || []).map((tip, index) => (
                   <li key={index}>{tip}</li>
                 ))}
               </ul>
             </div>
 
-            {analysisResult.alternative_diseases && analysisResult.alternative_diseases.length > 0 && (
+            {analysisResult.alternative_diseases && Array.isArray(analysisResult.alternative_diseases) && analysisResult.alternative_diseases.length > 0 && (
               <div className="alternatives">
-                <h3>🔍 Other Possible Conditions</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Search size={20} color="#2e7d32" />
+                  <span>Other Possible Conditions</span>
+                </h3>
                 <div className="alternative-list">
-                  {analysisResult.alternative_diseases.map((alt, index) => (
+                  {(analysisResult.alternative_diseases || []).map((alt, index) => (
                     <div key={index} className="alternative-item">
-                      <span>{alt.name}</span>
-                      <span className="confidence">{(alt.confidence * 100).toFixed(1)}%</span>
+                      <span>{alt.name || alt}</span>
+                      {alt.confidence && <span className="confidence">{(alt.confidence * 100).toFixed(1)}%</span>}
                     </div>
                   ))}
                 </div>
@@ -387,20 +468,26 @@ export default function CropDoctor() {
               <button 
                 onClick={() => navigate('/products')}
                 className="shop-products-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                🛒 Shop Treatment Products
+                <ShoppingBag size={18} />
+                <span>Shop Treatment Products</span>
               </button>
               <button 
                 onClick={() => navigate('/crops')}
                 className="manage-crops-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                🌾 Manage Crops
+                <Sprout size={18} />
+                <span>Manage Crops</span>
               </button>
               <button 
                 onClick={downloadPDFReport}
                 className="download-pdf-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                📄 Download PDF Report
+                <FileText size={18} />
+                <span>Download PDF Report</span>
               </button>
             </div>
           </div>
@@ -408,7 +495,10 @@ export default function CropDoctor() {
 
         {showHistory && (
           <div className="history-section">
-            <h3>📊 Analysis History</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart3 size={20} color="#2e7d32" />
+              <span>Analysis History</span>
+            </h3>
             {analysisHistory.length > 0 ? (
               <div className="history-list">
                 {analysisHistory.map((item) => (
@@ -423,7 +513,7 @@ export default function CropDoctor() {
                           {item.severity}
                         </span>
                         <span className="history-confidence">
-                          {(item.confidence * 100).toFixed(1)}%
+                          {typeof item.confidence === 'number' ? (item.confidence * 100).toFixed(1) + '%' : item.confidence || 'High'}
                         </span>
                         <span className="history-time">{item.timestamp}</span>
                       </div>

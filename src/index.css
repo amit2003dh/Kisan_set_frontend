@@ -8,6 +8,8 @@
   --primary-green: #2e7d32;
   --primary-green-dark: #1b5e20;
   --primary-green-light: #4caf50;
+  --primary-blue: #1976d2;
+  --primary-blue-dark: #1565c0;
   --secondary-gold: #ffc107;
   --background: #f5f7fa;
   --surface: #ffffff;
@@ -15,6 +17,7 @@
   --text-secondary: #666666;
   --text-light: #999999;
   --border: #e0e0e0;
+  --border-color: #e0e0e0;
   --error: #d32f2f;
   --success: #2e7d32;
   --warning: #f57c00;
@@ -239,7 +242,8 @@ code {
   color: var(--text-secondary);
 }
 
-.empty-state svg {
+.empty-state > svg,
+.empty-state-icon svg {
   width: 80px;
   height: 80px;
   margin-bottom: 20px;
@@ -344,7 +348,8 @@ code {
     padding: 40px 16px;
   }
   
-  .empty-state svg {
+  .empty-state > svg,
+  .empty-state-icon svg {
     width: 60px;
     height: 60px;
   }

@@ -175,12 +175,14 @@ export default function Login() {
                   <label style={{ display: "block", marginBottom: "6px" }}>Email</label>
                   <input className="input" type="email" value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} required />
                 </div>
-                <div style={{ marginBottom: "16px", position: "relative" }}>
+                <div style={{ marginBottom: "16px" }}>
                   <label style={{ display: "block", marginBottom: "6px" }}>Password</label>
-                  <input className="input" type={showPassword ? "text" : "password"} value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} required />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "10px", top: "35px", background: "none", border: "none", cursor: "pointer" }}>
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input className="input" type={showPassword ? "text" : "password"} value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} style={{ paddingRight: "40px" }} required />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: "4px", color: "var(--text-secondary)" }}>
+                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
                 </div>
                 <div style={{ textAlign: "right", marginBottom: "20px" }}>
                   <button type="button" onClick={() => setShowForgotPassword(true)} style={{ background: "none", border: "none", color: "var(--primary-blue)", cursor: "pointer", fontSize: "14px" }}>
@@ -220,19 +222,23 @@ export default function Login() {
                   <label style={{ display: "block", marginBottom: "4px" }}>Phone Number</label>
                   <input className="input" value={signupForm.phone} onChange={e => setSignupForm({ ...signupForm, phone: e.target.value })} placeholder="10 digits" />
                 </div>
-                <div style={{ marginBottom: "14px", position: "relative" }}>
+                <div style={{ marginBottom: "14px" }}>
                   <label style={{ display: "block", marginBottom: "4px" }}>Password *</label>
-                  <input className="input" type={showPassword ? "text" : "password"} value={signupForm.password} onChange={e => setSignupForm({ ...signupForm, password: e.target.value })} required />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "10px", top: "30px", background: "none", border: "none", cursor: "pointer" }}>
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input className="input" type={showPassword ? "text" : "password"} value={signupForm.password} onChange={e => setSignupForm({ ...signupForm, password: e.target.value })} style={{ paddingRight: "40px" }} required />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: "4px", color: "var(--text-secondary)" }}>
+                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
                 </div>
-                <div style={{ marginBottom: "20px", position: "relative" }}>
+                <div style={{ marginBottom: "20px" }}>
                   <label style={{ display: "block", marginBottom: "4px" }}>Confirm Password *</label>
-                  <input className="input" type={showConfirmPassword ? "text" : "password"} value={signupForm.confirmPassword} onChange={e => setSignupForm({ ...signupForm, confirmPassword: e.target.value })} required />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: "absolute", right: "10px", top: "30px", background: "none", border: "none", cursor: "pointer" }}>
-                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </button>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input className="input" type={showConfirmPassword ? "text" : "password"} value={signupForm.confirmPassword} onChange={e => setSignupForm({ ...signupForm, confirmPassword: e.target.value })} style={{ paddingRight: "40px" }} required />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: "4px", color: "var(--text-secondary)" }}>
+                      {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: "100%", padding: "12px" }} disabled={loading}>
                   {loading ? "Creating account..." : "Create Account"}

@@ -1,5 +1,17 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Leaf,
+  Camera,
+  Search,
+  RefreshCw,
+  AlertTriangle,
+  ClipboardList,
+  ShoppingBag,
+  Package,
+  X,
+  ArrowLeft
+} from 'lucide-react';
 import './PlantAnalysis.css';
 
 const PlantAnalysis = () => {
@@ -58,14 +70,14 @@ const PlantAnalysis = () => {
         ],
         healthy: false,
         alternative_diseases: [
-          { name: "Leaf Spot", confidence: 0.10 },
-          { name: "Powdery Mildew", confidence: 0.05 }
+          { name: "Powdery Mildew", confidence: 0.12 },
+          { name: "Rust", confidence: 0.03 }
         ]
       };
 
       setAnalysisResult(mockResults);
     } catch (err) {
-      setError('Failed to analyze the plant image. Please try again.');
+      setError('Failed to analyze plant. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -86,8 +98,7 @@ const PlantAnalysis = () => {
       case 'severe': return '#f44336';
       case 'moderate': return '#ff9800';
       case 'mild': return '#ffc107';
-      case 'healthy': return '#4caf50';
-      default: return '#2196f3';
+      default: return '#4caf50';
     }
   };
 
@@ -100,13 +111,18 @@ const PlantAnalysis = () => {
     <div className="plant-analysis-container">
       <div className="plant-analysis-header">
         <button 
-          onClick={() => navigate('/seller')}
+          onClick={() => navigate(-1)}
           className="back-button"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          ← Back to Dashboard
+          <ArrowLeft size={18} />
+          <span>Back</span>
         </button>
-        <h1>🌿 Plant Analysis Tool</h1>
-        <p>Upload a plant image to detect diseases and get treatment recommendations</p>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+          <Leaf size={32} color="#2e7d32" />
+          <span>Plant Health Analysis</span>
+        </h1>
+        <p>Upload a photo of your crop to diagnose diseases and get treatment advice</p>
       </div>
 
       <div className="plant-analysis-content">
@@ -119,12 +135,14 @@ const PlantAnalysis = () => {
                   onClick={resetAnalysis}
                   className="remove-image-btn"
                 >
-                  ×
+                  <X size={18} />
                 </button>
               </div>
             ) : (
               <div className="upload-placeholder">
-                <div className="upload-icon">📸</div>
+                <div className="upload-icon" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <Camera size={48} color="#2e7d32" />
+                </div>
                 <h3>Upload Plant Image</h3>
                 <p>Take a clear photo of the affected plant part</p>
                 <input
@@ -135,8 +153,9 @@ const PlantAnalysis = () => {
                   style={{ display: 'none' }}
                   id="plant-image-upload"
                 />
-                <label htmlFor="plant-image-upload" className="upload-button">
-                  Choose Image
+                <label htmlFor="plant-image-upload" className="upload-button" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <Camera size={18} />
+                  <span>Choose Image</span>
                 </label>
               </div>
             )}
@@ -148,21 +167,26 @@ const PlantAnalysis = () => {
                 onClick={analyzePlant}
                 disabled={isAnalyzing}
                 className="analyze-button"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                {isAnalyzing ? 'Analyzing...' : '🔍 Analyze Plant'}
+                <Search size={18} />
+                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Plant'}</span>
               </button>
               <button
                 onClick={resetAnalysis}
                 className="reset-button"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                🔄 Reset
+                <RefreshCw size={18} />
+                <span>Reset</span>
               </button>
             </div>
           )}
 
           {error && (
-            <div className="error-message">
-              ⚠️ {error}
+            <div className="error-message" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} color="#d32f2f" />
+              <span>{error}</span>
             </div>
           )}
         </div>
@@ -200,7 +224,10 @@ const PlantAnalysis = () => {
             </div>
 
             <div className="recommendations">
-              <h3>📋 Treatment Recommendations</h3>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClipboardList size={20} color="#2e7d32" />
+                <span>Treatment Recommendations</span>
+              </h3>
               <ul>
                 {analysisResult.recommendations.map((rec, index) => (
                   <li key={index}>{rec}</li>
@@ -210,7 +237,10 @@ const PlantAnalysis = () => {
 
             {analysisResult.alternative_diseases && analysisResult.alternative_diseases.length > 0 && (
               <div className="alternatives">
-                <h3>🔍 Other Possible Conditions</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Search size={20} color="#2e7d32" />
+                  <span>Other Possible Conditions</span>
+                </h3>
                 <div className="alternative-list">
                   {analysisResult.alternative_diseases.map((alt, index) => (
                     <div key={index} className="alternative-item">
@@ -226,14 +256,18 @@ const PlantAnalysis = () => {
               <button 
                 onClick={() => navigate('/seller/products')}
                 className="shop-products-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                🛒 Shop Treatment Products
+                <ShoppingBag size={18} />
+                <span>Shop Treatment Products</span>
               </button>
               <button 
                 onClick={() => navigate('/seller/orders')}
                 className="view-orders-btn"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
               >
-                📦 View Orders
+                <Package size={18} />
+                <span>View Orders</span>
               </button>
             </div>
           </div>
