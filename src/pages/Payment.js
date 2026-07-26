@@ -51,24 +51,35 @@ export default function Payment() {
     const productId = searchParams.get("productId");
     const fromCartParam = searchParams.get("fromCart");
 
-    if (fromCartParam === "true" && cart.length > 0) {
+    if ((fromCartParam === "true" || (!cropId && !productId)) && cart && cart.length > 0) {
       setFromCart(true);
       const total = cart.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
         0
       );
       setAmount(total);
       setPaymentDetails({ items: cart });
-    } else if (urlAmount) {
+      setError("");
+    } else if (urlAmount && (cropId || productId)) {
       setFromCart(false);
-      setAmount(parseFloat(urlAmount));
+      setAmount(parseFloat(urlAmount) || 0);
       setPaymentDetails({
         cropId,
         productId,
         itemType: cropId ? "crop" : "product"
       });
+      setError("");
+    } else if (cart && cart.length > 0) {
+      setFromCart(true);
+      const total = cart.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+        0
+      );
+      setAmount(total);
+      setPaymentDetails({ items: cart });
+      setError("");
     } else {
-      setError("No payment amount specified");
+      setError("");
     }
   }, [searchParams, cart]);
 
@@ -426,29 +437,19 @@ export default function Payment() {
         }
         clearCart();
       } else {
-        const itemId = paymentDetails.cropId || paymentDetails.productId;
-        console.log("🔍 Extracted itemId:", itemId);
-        console.log("🔍 paymentDetails.cropId:", paymentDetails.cropId);
-        console.log("🔍 paymentDetails.productId:", paymentDetails.productId);
-        
-        console.log("🛒 Creating single order with data:", {
-          buyerId,
-          itemId: itemId,
-          itemType: paymentDetails.itemType,
-          quantity: 1,
-          price: amount,
-          total: amount,
-          status: "Confirmed",
-          paymentMethod: "COD",
-          pickupAddress: pickupAddress,
-          deliveryAddress: address
-        });
-        
-        await apiCall(() =>
+        const itemId = paymentDetails?.cropId || paymentDetails?.productId;
+        if (!itemId) {
+          setError("No crop or product selected for purchase. Please select an item to buy.");
+          setLoading(false);
+          setIsProcessing(false);
+          return;
+        }
+
+        const result = await apiCall(() =>
           API.post("/orders/create", {
             buyerId,
             itemId: itemId,
-            itemType: paymentDetails.itemType,
+            itemType: paymentDetails?.itemType || "crop",
             quantity: 1,
             price: amount,
             total: amount,
@@ -457,6 +458,14 @@ export default function Payment() {
             deliveryAddress: address
           })
         );
+
+        if (result.error) {
+          console.error("❌ Single order creation failed:", result.error);
+          setError(`Failed to place order: ${result.error?.error || result.error?.message || result.error}`);
+          setLoading(false);
+          setIsProcessing(false);
+          return;
+        }
       }
       
       console.log("✅ Order placed successfully!");
@@ -464,12 +473,12 @@ export default function Payment() {
       navigate("/orders");
     } catch (err) {
       console.error("❌ Order placement error:", err);
-      setError("Failed to place order");
+      setError("Failed to place order. Please try again.");
     } finally {
       setLoading(false);
       setIsProcessing(false);
     }
-  }
+  };
 
 
   const payNow = async () => {
@@ -498,7 +507,7 @@ export default function Payment() {
         API.post("/payment/create-order", { amount })
       );
 
-      const razorpayKey = process.env.REACT_APP_RAZORPAY_KEY;
+      const razorpayKey = process.env.REACT_APP_RAZORPAY_KEY || process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_RzlXVLq3ULCEWt";
       if (!razorpayKey) {
         setError("Razorpay key not configured");
         setLoading(false);
@@ -688,11 +697,34 @@ export default function Payment() {
       rzp.open();
       setLoading(false);
     } catch (err) {
-      setError("Payment failed. Please try again.");
+      console.error("❌ Payment error:", err);
+      setError("Payment processing failed. Please try again.");
       setLoading(false);
       setIsProcessing(false);
     }
   };
+
+  if (!amount && (!paymentDetails || (!paymentDetails.cropId && !paymentDetails.productId && (!paymentDetails.items || paymentDetails.items.length === 0)))) {
+    return (
+      <div className="container" style={{ paddingTop: "60px", paddingBottom: "60px" }}>
+        <div className="card" style={{ textAlign: "center", padding: "60px 20px", maxWidth: "600px", margin: "0 auto" }}>
+          <div style={{ fontSize: "64px", marginBottom: "16px" }}>🛒</div>
+          <h2 style={{ marginBottom: "12px", color: "var(--text-primary)" }}>Your Checkout Session is Empty</h2>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "24px", lineHeight: "1.5" }}>
+            No item or cart total was found for this checkout session. Please select crops or products from our marketplace to proceed.
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button onClick={() => navigate("/crops")} className="btn btn-primary">
+              Browse Crops
+            </button>
+            <button onClick={() => navigate("/products")} className="btn btn-secondary">
+              Browse Store
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-header">

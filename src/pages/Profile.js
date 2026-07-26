@@ -21,7 +21,7 @@ export default function Profile() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-  const STATIC_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+  const STATIC_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
 
   const fetchUserProfile = useCallback(async () => {
     setLoading(true);
@@ -106,6 +106,7 @@ export default function Profile() {
 
     const photoFormData = new FormData();
     photoFormData.append("profilePhoto", selectedPhoto);
+    photoFormData.append("photo", selectedPhoto);
 
     try {
       const token = localStorage.getItem("token");
@@ -119,9 +120,10 @@ export default function Profile() {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && (data.success || data.profilePhoto)) {
         setSuccess("Profile photo updated successfully!");
-        const updatedPhotoUrl = `${STATIC_BASE_URL}${data.profilePhoto}?t=${Date.now()}`;
+        const photoPath = data.profilePhoto || data.user?.profilePhoto;
+        const updatedPhotoUrl = `${STATIC_BASE_URL}${photoPath}?t=${Date.now()}`;
         setPhotoPreview(updatedPhotoUrl);
         setSelectedPhoto(null);
 
@@ -129,20 +131,20 @@ export default function Profile() {
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           const userData = JSON.parse(storedUser);
-          userData.profilePhoto = data.profilePhoto;
+          userData.profilePhoto = photoPath;
           localStorage.setItem("user", JSON.stringify(userData));
         }
 
         setUser(prev => ({
           ...prev,
-          profilePhoto: data.profilePhoto
+          profilePhoto: photoPath
         }));
       } else {
         setError(data.error || data.message || "Failed to upload profile photo");
       }
     } catch (err) {
       console.error("Photo upload error:", err);
-      setError("Network error. Failed to upload photo.");
+      setError("Failed to upload profile photo. Please try again.");
     } finally {
       setUploading(false);
     }

@@ -124,49 +124,49 @@ export default function CropList() {
               <div>
                 <div style={{
                   width: "100%",
-                  height: "180px",
+                  height: "190px",
                   borderRadius: "var(--border-radius-sm)",
                   marginBottom: "16px",
                   overflow: "hidden",
                   background: "var(--background)",
-                  border: "1px solid var(--border)"
+                  border: "1px solid var(--border)",
+                  position: "relative"
                 }}>
-                  {crop.image ? (
-                    <img 
-                      src={crop.image.startsWith("http") ? crop.image : `${STATIC_BASE_URL}${crop.image}`} 
-                      alt={crop.name || "Crop"} 
-                      style={{ 
-                        width: "100%", 
-                        height: "100%", 
-                        objectFit: "cover",
-                        display: "block"
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        const parent = e.target.parentElement;
-                        if (parent) {
-                          parent.style.background = "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)";
-                          parent.style.display = "flex";
-                          parent.style.alignItems = "center";
-                          parent.style.justifyContent = "center";
-                          parent.style.color = "white";
-                          parent.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4.2.8-4.9 2z"/></svg>';
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
-                      color: "white"
-                    }}>
-                      <Sprout size={48} color="white" />
-                    </div>
-                  )}
+                  {(() => {
+                    const imgUrl = (crop.images && crop.images.length > 0)
+                      ? (crop.images[crop.primaryImageIndex || 0] || crop.images[0])
+                      : crop.image;
+                    const finalSrc = imgUrl ? (imgUrl.startsWith("http") ? imgUrl : `${STATIC_BASE_URL}${imgUrl}`) : null;
+
+                    return finalSrc ? (
+                      <img 
+                        src={finalSrc} 
+                        alt={crop.name || "Crop"} 
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          objectFit: "cover",
+                          display: "block"
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&auto=format&fit=crop";
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)",
+                        color: "white"
+                      }}>
+                        <Sprout size={48} color="white" />
+                      </div>
+                    );
+                  })()}
                 </div>
                 <h3 style={{
                   margin: "0",
@@ -213,8 +213,16 @@ export default function CropList() {
                 </div>
                 <div style={{ marginBottom: "16px", color: "var(--text-secondary)", fontSize: "14px" }}>
                   <div style={{ marginBottom: "4px" }}>
-                    <strong>Quantity:</strong> {crop.quantity || 0} kg
+                    <strong>Quantity Available:</strong> {crop.quantity || 0} Quintals
                   </div>
+                  {crop.location && (crop.location.address || crop.location.city) && (
+                    <div style={{ marginBottom: "6px", display: "flex", alignItems: "flex-start", gap: "5px", fontSize: "13px", color: "#475569" }}>
+                      <span style={{ fontSize: "14px" }}>📍</span>
+                      <span style={{ lineHeight: "1.3" }}>
+                        {crop.location.address ? crop.location.address : `${crop.location.city}, ${crop.location.state}`}
+                      </span>
+                    </div>
+                  )}
                   {crop.harvestDate && (
                     <div>
                       <strong>Harvest Date:</strong> {new Date(crop.harvestDate).toLocaleDateString()}

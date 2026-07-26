@@ -156,6 +156,20 @@ export default function ProductStore() {
         >
           🧪 Pesticides
         </button>
+        <button
+          onClick={() => setFilter("fertilizer")}
+          className={`btn ${filter === "fertilizer" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "14px", padding: "10px 20px" }}
+        >
+          🌾 Fertilizers
+        </button>
+        <button
+          onClick={() => setFilter("equipment")}
+          className={`btn ${filter === "equipment" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "14px", padding: "10px 20px" }}
+        >
+          🚜 Equipment
+        </button>
       </div>
 {console.log("Filtered products:", filteredProducts)}
       {filteredProducts.length === 0 ? (
